@@ -249,7 +249,7 @@ with col1:
         if st.button("🚀 Run Full Analysis", use_container_width=True):
             fitz = _load("fitz")
             with st.spinner("🤖 Agent 1: Scoring skills…"):
-                doc = fitz.open(stream=uploaded_file.read(), filetype="pdf")
+                doc = fitz.open(stream=uploaded_file.read() if uploaded_file else b"", filetype="pdf")
                 raw_text = "".join([page.get_text() for page in doc])
                 st.session_state.scores = score_skills(raw_text, job_desc)
             with st.spinner("🤖 Agent 2: Auditing & rewriting CV…"):
