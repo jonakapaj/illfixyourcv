@@ -1,11 +1,11 @@
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import Response
+from fastapi.responses import Response, FileResponse
+from fastapi.staticfiles import StaticFiles
 import os
 import sys
-import json
 import fitz  # PyMuPDF
-from typing import List, Optional
+from typing import Optional
 from pydantic import BaseModel
 
 # Add current dir to path to import local modules
@@ -24,9 +24,22 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Determine the base directory depending on if we are running from a PyInstaller bundle
+if getattr(sys, 'frozen', False):
+    # Running in a bundle; use getattr to avoid static type checkers complaining about _MEIPASS
+    base_dir = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
+else:
+    # Running in normal Python environment
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+
+frontend_dist = os.path.join(base_dir, "frontend_dist")
+
 @app.get("/")
 async def root():
-    return {"message": "CV Optimizer API is running. Use /analyze to start."}
+    index_path = os.path.join(frontend_dist, "index.html")
+    if os.path.exists(index_path):
+        return FileResponse(index_path)
+    return {"message": "CV Optimizer API is running. Build the frontend to see the UI."}
 
 class OptimizeRequest(BaseModel):
     job_description: str
@@ -42,7 +55,8 @@ async def analyze_cv(
         # 1. Read PDF content
         content = await file.read()
         doc = fitz.open(stream=content, filetype="pdf")
-        raw_text = "".join([page.get_text() for page in doc])
+        # Ensure each page text is a string to satisfy type checkers
+        raw_text = "".join(str(page.get_text()) for page in doc)
         
         if not raw_text.strip():
             raise HTTPException(status_code=400, detail="Could not extract text from PDF")
@@ -84,6 +98,10 @@ async def generate_pdf(template_id: str, cv_data: dict):
     except Exception as e:
         print(f"Error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+# Mount static files (assets, js, css) if the directory exists
+if os.path.exists(frontend_dist):
+    app.mount("/", StaticFiles(directory=frontend_dist, html=True), name="static")
 
 if __name__ == "__main__":
     import uvicorn
