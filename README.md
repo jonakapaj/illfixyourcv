@@ -76,6 +76,12 @@ Project layout (high level)
 - `backend/requirements.txt` — Python dependencies for the backend
 - `scratch/test_api.py` — small smoke test for the API
 
+Improvements implemented
+- Background job queue for analysis with job status/result endpoints (`/analyze`, `/status/{id}`, `/result/{id}`).
+- Caching of analysis results to avoid re-running identical CV+JD pairs (`backend/utils.py`).
+- OCR fallback for scanned PDFs using `pytesseract` and `Pillow`.
+- Basic logging and better error handling in the backend.
+
 Contributing
 - Open a branch, make small commits with clear messages, and open a PR describing the change.
 

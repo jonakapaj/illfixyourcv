@@ -2,6 +2,7 @@
 pdf_templates.py — Three CV PDF templates using fpdf2.
 """
 from fpdf import FPDF, XPos, YPos
+from datetime import datetime
 
 
 def _s(text):
@@ -397,5 +398,53 @@ def build_minimal_slate(cv_data: dict) -> bytes:
                      new_x=XPos.LMARGIN, new_y=YPos.NEXT)
             pdf.set_text_color(30, 30, 30)
             pdf.ln(2)
+
+    return bytes(pdf.output())
+
+
+# ── COVER LETTER TEMPLATE ────────────────────────────────────────────────────
+def build_cover_letter(letter_data: dict) -> bytes:
+    pdf = FPDF()
+    pdf.set_auto_page_break(auto=True, margin=18)
+    pdf.add_page()
+    pdf.set_margins(18, 18, 18)
+    W = pdf.w
+
+    pdf.set_fill_color(17, 24, 39)
+    pdf.rect(0, 0, W, 28, "F")
+    pdf.set_text_color(255, 255, 255)
+    pdf.set_font("Helvetica", "B", 18)
+    pdf.set_xy(18, 8)
+    pdf.cell(0, 8, _s(letter_data.get("full_name", "Your Name")), new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+
+    pdf.set_font("Helvetica", "", 9)
+    pdf.set_xy(18, 18)
+    contact = "  |  ".join(filter(None, [
+        letter_data.get("email", ""),
+        letter_data.get("phone", ""),
+        letter_data.get("location", ""),
+    ]))
+    pdf.cell(0, 6, _s(contact), new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+
+    pdf.ln(8)
+    pdf.set_text_color(30, 30, 30)
+    pdf.set_font("Helvetica", "", 10)
+
+    meta_lines = [
+        datetime.now().strftime("%d %B %Y"),
+        letter_data.get("target_company", ""),
+        letter_data.get("target_role", ""),
+    ]
+    for line in meta_lines:
+        if line:
+            pdf.cell(0, 5.5, _s(line), new_x=XPos.LMARGIN, new_y=YPos.NEXT)
+
+    pdf.ln(4)
+    pdf.set_font("Helvetica", "", 10.5)
+    pdf.multi_cell(0, 6, _s(letter_data.get("cover_letter", "")))
+
+    pdf.ln(6)
+    pdf.set_font("Helvetica", "B", 10.5)
+    pdf.cell(0, 6, _s(letter_data.get("full_name", "")), new_x=XPos.LMARGIN, new_y=YPos.NEXT)
 
     return bytes(pdf.output())
