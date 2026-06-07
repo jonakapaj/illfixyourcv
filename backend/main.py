@@ -7,18 +7,20 @@ import sys
 import fitz  # PyMuPDF
 import uuid
 import logging
-from typing import Dict
+from typing import Dict, Optional
+from concurrent.futures import ThreadPoolExecutor
 
 from .utils import extract_text_from_pdf, make_cache_key, get_cached, set_cached
-from typing import Optional
 from pydantic import BaseModel
 
 # Add current dir to path to import local modules
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
-from ai_agents import score_skills, audit_and_rewrite, structure_cv, generate_cover_letter
+from ai_agents import score_skills, audit_cv, rewrite_cv, structure_cv, generate_cover_letter
 from pdf_templates import build_corporate, build_tech_modern, build_minimal_slate, build_cover_letter
 
 app = FastAPI(title="CV Optimizer API")
+
+ANALYSIS_CACHE_VERSION = "analysis-v5-sequential"
 
 # Simple in-memory job store for background tasks (id -> status/result)
 JOBS: Dict[str, dict] = {}
@@ -77,7 +79,7 @@ async def analyze_cv(
     """Enqueue analysis job and return a job id. Clients should poll /status and /result."""
     content = await file.read()
 
-    cache_key = make_cache_key(content, job_description)
+    cache_key = make_cache_key(content, job_description, ANALYSIS_CACHE_VERSION)
     cached = get_cached(cache_key)
     if cached:
         logger.info("Returning cached analysis result")
@@ -106,31 +108,48 @@ def _run_analysis(job_id: str, content: bytes, job_description: str, user_instru
         if JOBS[job_id].get("cancel"):
             JOBS[job_id]["status"] = "canceled"
             JOBS[job_id]["stage"] = "canceled"
-            logger.info(f"Job {job_id} canceled after extraction")
             return
 
+        # Phase 1 — scoring (sequential: Ollama handles one request at a time anyway)
         JOBS[job_id]["stage"] = "scoring"
-        JOBS[job_id]["progress"] = 30
+        JOBS[job_id]["progress"] = 20
+        logger.info(f"Job {job_id} — scoring skills")
         scores = score_skills(raw_text, job_description)
+        JOBS[job_id]["progress"] = 35
 
         if JOBS[job_id].get("cancel"):
             JOBS[job_id]["status"] = "canceled"
             JOBS[job_id]["stage"] = "canceled"
-            logger.info(f"Job {job_id} canceled after scoring")
             return
 
-        JOBS[job_id]["stage"] = "auditing_rewriting"
+        # Phase 2 — audit
+        JOBS[job_id]["stage"] = "auditing"
+        JOBS[job_id]["progress"] = 40
+        logger.info(f"Job {job_id} — auditing CV")
+        audit = audit_cv(raw_text, job_description)
         JOBS[job_id]["progress"] = 60
-        audit, rewrite = audit_and_rewrite(raw_text, job_description, user_instructions)
 
         if JOBS[job_id].get("cancel"):
             JOBS[job_id]["status"] = "canceled"
             JOBS[job_id]["stage"] = "canceled"
-            logger.info(f"Job {job_id} canceled after auditing")
             return
 
+        # Phase 3 — rewrite
+        JOBS[job_id]["stage"] = "rewriting"
+        JOBS[job_id]["progress"] = 65
+        logger.info(f"Job {job_id} — rewriting CV")
+        rewrite = rewrite_cv(raw_text, job_description, user_instructions)
+        JOBS[job_id]["progress"] = 80
+
+        if JOBS[job_id].get("cancel"):
+            JOBS[job_id]["status"] = "canceled"
+            JOBS[job_id]["stage"] = "canceled"
+            return
+
+        # Phase 2 — structure (needs rewrite result)
         JOBS[job_id]["stage"] = "structuring"
         JOBS[job_id]["progress"] = 85
+        logger.info(f"Job {job_id} — structuring CV")
         cv_data = structure_cv(raw_text, rewrite)
 
         result = {"scores": scores, "audit": audit, "rewrite": rewrite, "cv_data": cv_data}
@@ -139,10 +158,15 @@ def _run_analysis(job_id: str, content: bytes, job_description: str, user_instru
         JOBS[job_id]["progress"] = 100
         JOBS[job_id]["result"] = result
 
-        # Cache result for future identical requests
-        cache_key = make_cache_key(content, job_description)
-        set_cached(cache_key, result)
-        logger.info(f"Job {job_id} completed and cached")
+        # Only cache if the result contains real content, not fallback defaults
+        scores_are_default = list(scores.values()) == [50, 50, 50, 50, 50, 50]
+        has_content = audit.strip() and rewrite.strip() and not scores_are_default
+        if has_content:
+            cache_key = make_cache_key(content, job_description, ANALYSIS_CACHE_VERSION)
+            set_cached(cache_key, result)
+            logger.info(f"Job {job_id} completed and cached")
+        else:
+            logger.warning(f"Job {job_id} completed with fallback/empty content — skipping cache")
     except Exception as e:
         logger.exception(f"Job {job_id} failed: {e}")
         JOBS[job_id]["status"] = "failed"

@@ -51,6 +51,88 @@ const Background3D = () => (
   </div>
 );
 
+const STAGE_META = {
+  queued:      { label: 'Queued',          detail: 'Waiting to start…' },
+  extracting:  { label: 'Reading PDF',     detail: 'Extracting text from your CV…' },
+  scoring:     { label: 'Scoring Skills',  detail: 'Matching your CV against the job requirements…' },
+  auditing:    { label: 'Auditing CV',     detail: 'Identifying gaps and alignment…' },
+  rewriting:   { label: 'Rewriting CV',    detail: 'Generating optimised sections…' },
+  structuring: { label: 'Structuring',     detail: 'Building the final CV data…' },
+  completed:   { label: 'Complete',        detail: 'Done.' },
+  canceling:   { label: 'Cancelling',      detail: 'Stopping job…' },
+};
+
+const STEPS = [
+  { key: 'extracting',  label: 'Read PDF',   pct: 5  },
+  { key: 'scoring',     label: 'Score',      pct: 20 },
+  { key: 'auditing',    label: 'Audit',      pct: 40 },
+  { key: 'rewriting',   label: 'Rewrite',    pct: 65 },
+  { key: 'structuring', label: 'Structure',  pct: 80 },
+  { key: 'completed',   label: 'Done',       pct: 100 },
+];
+
+function ProgressView({ jobStage, jobStatus, jobProgress, jobId, onCancel }) {
+  const current = STAGE_META[jobStage] || STAGE_META[jobStatus] || { label: jobStatus || 'Processing', detail: '' };
+  const pct = Math.max(jobProgress || 0, 0);
+
+  return (
+    <div className="flex flex-col items-center justify-center h-[50vh] text-center">
+      <motion.div
+        animate={{ rotate: [0, 360] }}
+        transition={{ repeat: Infinity, duration: 2, ease: 'linear' }}
+        className="mb-6 text-emerald-500 opacity-70"
+      >
+        <Cpu size={36} />
+      </motion.div>
+
+      <div className="mb-1 text-sm font-black uppercase tracking-widest">{current.label}</div>
+      <div className="text-xs opacity-50 mb-6">{current.detail}</div>
+
+      <div className="w-2/3 max-w-sm bg-emerald-900/20 rounded-full h-3 overflow-hidden mb-2">
+        <motion.div
+          className="h-full bg-emerald-500 rounded-full"
+          animate={{ width: `${pct}%` }}
+          transition={{ duration: 0.6, ease: 'easeOut' }}
+        />
+      </div>
+      <div className="text-xs font-mono text-emerald-400 mb-8">{pct}%</div>
+
+      <div className="flex items-center gap-2">
+        {STEPS.map((step, i) => {
+          const done = pct >= step.pct;
+          const active = jobStage === step.key;
+          return (
+            <React.Fragment key={step.key}>
+              <div className="flex flex-col items-center gap-1">
+                <div className={`w-3 h-3 rounded-full border-2 transition-all duration-500 ${
+                  done   ? 'bg-emerald-500 border-emerald-500' :
+                  active ? 'border-emerald-400 bg-emerald-400/30 animate-pulse' :
+                           'border-emerald-900/50 bg-transparent'
+                }`} />
+                <span className={`text-[9px] uppercase tracking-widest font-bold ${done ? 'text-emerald-400' : 'text-emerald-900/60'}`}>
+                  {step.label}
+                </span>
+              </div>
+              {i < STEPS.length - 1 && (
+                <div className={`w-8 h-px mb-4 transition-colors duration-500 ${pct >= step.pct ? 'bg-emerald-500' : 'bg-emerald-900/30'}`} />
+              )}
+            </React.Fragment>
+          );
+        })}
+      </div>
+
+      {jobId && jobStatus !== 'completed' && jobStatus !== 'failed' && (
+        <button
+          onClick={onCancel}
+          className="mt-8 px-4 py-2 bg-red-600/80 hover:bg-red-600 rounded-lg text-xs font-bold text-white transition-colors"
+        >
+          Cancel
+        </button>
+      )}
+    </div>
+  );
+}
+
 const App = () => {
   const [jobDesc, setJobDesc] = useState('');
   const [extraInstructions, setExtraInstructions] = useState('');
@@ -61,6 +143,7 @@ const App = () => {
   const [jobId, setJobId] = useState(null);
   const [jobStatus, setJobStatus] = useState(null);
   const [jobStage, setJobStage] = useState(null);
+  const [jobProgress, setJobProgress] = useState(0);
   const [toasts, setToasts] = useState([]);
   const [editedRewrite, setEditedRewrite] = useState(null);
   const [selectedTemplate, setSelectedTemplate] = useState('corporate');
@@ -126,8 +209,11 @@ const App = () => {
     if (!file || !jobDesc) return;
     setLoading(true);
     setError(null);
+    setResults(null);
     setJobId(null);
-    setJobStatus(null);
+    setJobStatus('queued');
+    setJobStage('queued');
+    setJobProgress(0);
     const formData = new FormData();
     formData.append('file', file);
     formData.append('job_description', jobDesc);
@@ -158,20 +244,22 @@ const App = () => {
     }
   };
 
-  const pollJob = async (id, attempts = 0) => {
+  const pollJob = async (id, failures = 0) => {
     try {
       const statusResp = await axios.get(`${API_BASE}/status/${id}`);
       const s = statusResp.data.status;
       const stage = statusResp.data.stage;
+      const progress = statusResp.data.progress ?? 0;
       setJobStatus(s);
       setJobStage(stage);
+      setJobProgress(progress);
       if (s === 'completed') {
         const res = await axios.get(`${API_BASE}/result/${id}`);
         setResults(res.data);
         setEditedRewrite(res.data.rewrite || null);
+        setJobProgress(100);
         setLoading(false);
         setJobId(null);
-        setJobStatus('completed');
         return;
       }
       if (s === 'failed') {
@@ -180,13 +268,11 @@ const App = () => {
         setJobId(null);
         return;
       }
-      // Exponential backoff up to ~10s
-      const delay = Math.min(1000 * Math.pow(2, attempts), 10000);
-      setTimeout(() => pollJob(id, Math.min(attempts + 1, 6)), delay);
+      // Poll every 2.5 s while running; back off only on network errors
+      setTimeout(() => pollJob(id, 0), 2500);
     } catch (err) {
-      if (attempts < 6) {
-        const delay = Math.min(1000 * Math.pow(2, attempts), 10000);
-        setTimeout(() => pollJob(id, attempts + 1), delay);
+      if (failures < 5) {
+        setTimeout(() => pollJob(id, failures + 1), 3000);
       } else {
         setError('Unable to get job status.');
         setLoading(false);
@@ -505,12 +591,12 @@ const App = () => {
               </span>
             </div>
             <h2 className={`text-6xl font-black tracking-tighter ${themePreset === 'paper' ? 'text-slate-900' : 'text-gradient'}`}>
-              Neural CV Optimizer
+              MatchLens
             </h2>
           </div>
           <div className={`flex flex-col items-end gap-1 ${themePreset === 'paper' ? 'opacity-70' : 'opacity-40'}`}>
             <span className="text-[9px] font-mono">ENCODING: LATIN-1</span>
-            <span className="text-[9px] font-mono">MODEL: LLAMA-3-BETA</span>
+            <span className="text-[9px] font-mono">MODEL: LLAMA-3</span>
           </div>
         </header>
 
@@ -557,30 +643,20 @@ const App = () => {
           </motion.div>
         )}
 
-        {!results && jobStatus && (
-          <div className="flex flex-col items-center justify-center h-[50vh] text-center">
-            <div className="mb-6">
-              <div className="text-sm font-bold uppercase tracking-widest">Analysis status</div>
-              <div className="text-xs text-emerald-300 mt-2">{jobStatus.toUpperCase()}</div>
-            </div>
-            <div className="w-2/3 bg-emerald-900/20 rounded-full h-4 overflow-hidden mb-4">
-              <div className="h-full bg-emerald-500 transition-all" style={{ width: jobStatus === 'completed' ? '100%' : jobStatus === 'running' ? '60%' : '20%' }} />
-            </div>
-            <p className="text-emerald-900 text-xs font-medium max-w-xs uppercase tracking-widest leading-relaxed">This may take a few seconds — we'll update automatically.</p>
-          </div>
-        )}
+        {!results && loading && <ProgressView
+          jobStage={jobStage}
+          jobStatus={jobStatus}
+          jobProgress={jobProgress}
+          jobId={jobId}
+          onCancel={cancelJob}
+        />}
+
         {!results && !jobStatus && (
           <div className="flex flex-col items-center justify-center h-[50vh] text-center">
             <motion.div animate={{ y: [0, -8, 0] }} transition={{ repeat: Infinity, duration: 3 }} className={`w-24 h-24 rounded-[2rem] border flex items-center justify-center mb-6 rotate-3 shadow-2xl ${themePreset === 'paper' ? 'bg-white border-slate-200 shadow-slate-900/5' : themePreset === 'graphite' ? 'bg-[#1b1b1b] border-zinc-800 shadow-black/20' : 'bg-emerald-500/5 border-emerald-500/10 shadow-emerald-500/5'}`}>
               <Layers className="text-emerald-900" size={40} />
             </motion.div>
-            <div className="text-xs text-emerald-300 mb-4">{jobStatus ? `${jobStatus.toUpperCase()} ${jobStage ? `— ${jobStage}` : ''}` : ''}</div>
             <p className="text-emerald-900 text-xs font-medium max-w-xs uppercase tracking-widest leading-relaxed">Please configure target parameters and source PDF in the command center.</p>
-            <div className="mt-4 flex gap-3">
-              {jobId && jobStatus !== 'completed' && jobStatus !== 'failed' && (
-                <button onClick={cancelJob} className="px-4 py-2 bg-red-600 rounded-lg text-xs font-bold text-white">Cancel</button>
-              )}
-            </div>
           </div>
         )}
         {results && (
