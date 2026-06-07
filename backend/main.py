@@ -46,7 +46,21 @@ else:
     # Running in normal Python environment
     base_dir = os.path.dirname(os.path.abspath(__file__))
 
-frontend_dist = os.path.join(base_dir, "frontend_dist")
+repo_root = os.path.dirname(base_dir)
+frontend_dist_candidates = [
+    os.path.join(repo_root, "frontend", "dist"),
+    os.path.join(base_dir, "frontend_dist"),
+]
+
+
+def _resolve_frontend_dist() -> str:
+    for candidate in frontend_dist_candidates:
+        if os.path.exists(os.path.join(candidate, "index.html")):
+            return candidate
+    return frontend_dist_candidates[-1]
+
+
+frontend_dist = _resolve_frontend_dist()
 
 @app.get("/")
 async def root():

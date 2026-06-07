@@ -14,8 +14,8 @@ import {
   Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer
 } from 'recharts';
 
-// In dev mode, point to the local FastAPI server. Allow override via VITE_API_BASE.
-const API_BASE = import.meta.env.VITE_API_BASE || (import.meta.env.DEV ? "http://localhost:8001" : "");
+// Use relative API paths by default so the same frontend works behind Vite or the backend server.
+const API_BASE = import.meta.env.VITE_API_BASE || "";
 
 
 // --- 3D Background Component ---
@@ -268,11 +268,11 @@ const App = () => {
         setJobId(null);
         return;
       }
-      // Poll every 2.5 s while running; back off only on network errors
-      setTimeout(() => pollJob(id, 0), 2500);
+      // Faster polling keeps the percentage UI responsive without changing the backend work.
+      setTimeout(() => pollJob(id, 0), 750);
     } catch (err) {
       if (failures < 5) {
-        setTimeout(() => pollJob(id, failures + 1), 3000);
+        setTimeout(() => pollJob(id, failures + 1), Math.min(750 * (failures + 1), 2500));
       } else {
         setError('Unable to get job status.');
         setLoading(false);
