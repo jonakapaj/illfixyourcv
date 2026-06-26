@@ -1,89 +1,81 @@
 # AI Career Sentinel / CV Optimizer
 
-> Local-first CV optimisation: Streamlit UI + optional SPA frontend, FastAPI backend, and single-file build.
+Local-first CV optimization and cover letter generation using local LLMs (defaults to Ollama `llama3`). Contains a Streamlit dashboard, a FastAPI backend with background job queue, and a React (Vite) frontend.
 
-Overview
-- Streamlit app for quick local CV optimisation (`app.py`).
-- Optional React + Vite frontend (in `frontend/`) served as static assets by a FastAPI backend (`backend/main.py`).
-- Build tooling to bundle backend + frontend into a single executable using PyInstaller (`build.py`, `backend/CV_Optimizer.spec`).
+---
 
-Quickstart (development)
+## 🚀 Key Features
 
-Prerequisites:
-- Python 3.10+ and a POSIX shell (macOS/Linux)
-- Node.js + npm (for the frontend)
-- Optional: `pyinstaller` if you plan to create the single-file bundle
+- **Multi-Agent CV Audit & Rewrite**: Evaluates skill alignment, identifies gaps, provides roadmaps, and rewrites CVs using the STAR method.
+- **Asynchronous Task Queue**: Background worker for long-running LLM tasks with status polling and cancellation.
+- **Cover Letter Generator**: Builds customized cover letters (text or PDF) matching CV and job details.
+- **PDF Generation**: Exports print-ready CVs using `corporate`, `tech`, or `minimal` templates.
+- **OCR Fallback**: Automated text extraction fallback for scanned PDFs via Tesseract OCR + Pillow.
+- **Response Caching**: Local file-based caching for identical CV and job description runs.
 
-1) Create a virtual environment and install backend deps:
+---
 
+## 📁 Directory Structure
+
+- `app.py`: Streamlit dashboard for fast local iteration.
+- `build.py`: Compiles React assets and packages the app into a single executable.
+- `backend/`:
+  - `main.py`: FastAPI server routes and background task worker.
+  - `ai_agents.py`: LLM agent logic (scoring, auditing, rewriting).
+  - `pdf_templates.py`: PDF rendering code for CV templates and cover letters.
+  - `utils.py`: Text extraction, OCR, and hashing cache helpers.
+- `frontend/`: React + Vite SPA.
+
+---
+
+## ⚙️ Quickstart & Development
+
+### 1. Prerequisites
+- Python 3.10+
+- Node.js & npm
+- Ollama service running with `llama3` pulled (`ollama pull llama3`)
+- *Optional*: System-level Tesseract (`brew install tesseract`) for scanned PDF support
+
+### 2. Installation
 ```bash
-python -m venv venv
-source venv/bin/activate
+python -m venv venv && source venv/bin/activate
 pip install -r backend/requirements.txt
 ```
 
-2) Run the Streamlit app (fast local iteration):
+### 3. Running Services
+- **Streamlit UI**: `PYTHONPATH=backend streamlit run app.py`
+- **FastAPI API**: `uvicorn backend.main:app --reload --port 8000` *(Docs at `/docs`)*
+- **React Frontend**: `cd frontend && npm install && npm run dev`
 
+---
+
+## 📦 Production Bundle
+
+To compile the React SPA and bundle the backend + frontend into a single executable:
 ```bash
-source venv/bin/activate
-streamlit run app.py
-```
-
-3) Run the backend API (serves the SPA when built):
-
-```bash
-uvicorn backend.main:app --reload --host 0.0.0.0 --port 8000
-```
-
-4) Frontend development (React + Vite):
-
-```bash
-cd frontend
-npm install
-npm run dev
-```
-
-Build & bundle (production)
-
-- Build the frontend static assets:
-
-```bash
-cd frontend
-npm run build
-```
-
-- The repository includes `build.py` which automates copying the built frontend into `backend/frontend_dist` and running PyInstaller to bundle the backend into a single executable.
-
-```bash
-# from project root
 python build.py
 ```
+The standalone binary will be created at `backend/dist/CV_Optimizer`. Run it directly to start the server at [http://localhost:8000](http://localhost:8000).
 
-API endpoints
-- `POST /analyze` — multipart: `file` (PDF), `job_description`, `user_instructions` — returns `scores`, `audit`, `rewrite`, `cv_data`.
-- `POST /generate` — JSON body: `template_id`, `cv_data` — returns a PDF response.
+---
 
-Notes & troubleshooting
-- PDF text extraction uses PyMuPDF (`fitz`). If text extraction fails, check that the uploaded PDF contains selectable text (not scanned images) or add OCR beforehand.
-- If you see import errors for local modules, ensure your working directory is the project root so `backend` and `app.py` can import `ai_agents` and `pdf_templates`.
-- For packaging with PyInstaller: make sure `pyinstaller` is installed in the active environment and that `npm run build` completed successfully.
+## 🔌 API Reference
 
-Project layout (high level)
-- `app.py` — Streamlit UI for local usage
-- `backend/` — FastAPI app, PyInstaller spec, and bundled static `frontend_dist`
-- `frontend/` — React + Vite SPA source and configs
-- `build.py` — convenience script to build frontend + run PyInstaller
-- `backend/requirements.txt` — Python dependencies for the backend
-- `scratch/test_api.py` — small smoke test for the API
+### CV Analysis & Jobs
+* **`POST /analyze`** (Multipart): Submit `file` (PDF), `job_description`, and optional `user_instructions`. Returns `job_id`.
+* **`GET /status/{job_id}`**: Poll progress status (`queued`, `running`, `completed`, `failed`, `canceled`) and stage info.
+* **`GET /result/{job_id}`**: Retrieve final `scores`, `audit`, `rewrite`, and `cv_data` structure.
+* **`POST /cancel/{job_id}`**: Cancel a running analysis.
+* **`POST /structure`** (Form): Re-parse CV JSON structure from manual rewrite text.
 
-Improvements implemented
-- Background job queue for analysis with job status/result endpoints (`/analyze`, `/status/{id}`, `/result/{id}`).
-- Caching of analysis results to avoid re-running identical CV+JD pairs (`backend/utils.py`).
-- OCR fallback for scanned PDFs using `pytesseract` and `Pillow`.
-- Basic logging and better error handling in the backend.
+### PDF Exports & Cover Letters
+* **`POST /generate?template_id={corporate|tech|minimal}`** (JSON body: `cv_data`): Generates a PDF resume stream.
+* **`POST /cover-letter`** (Multipart): Generates cover letter text using CV PDF, job details, and optional `tone`.
+* **`POST /cover-letter-pdf`** (Form): Generates a styled cover letter PDF attachment.
 
-Contributing
-- Open a branch, make small commits with clear messages, and open a PR describing the change.
+---
 
-License
-- Add your chosen license file at the project root (e.g. `LICENSE`).
+## 🔧 Environment Variables
+
+- `OLLAMA_MODEL`: Target Ollama model name (default: `llama3`).
+- `SERVE_FRONTEND`: Set to `1`, `true`, or `yes` to serve the static frontend via FastAPI.
