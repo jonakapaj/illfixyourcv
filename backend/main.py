@@ -62,8 +62,16 @@ def _resolve_frontend_dist() -> str:
 
 frontend_dist = _resolve_frontend_dist()
 
+
+def _should_serve_frontend() -> bool:
+    if getattr(sys, 'frozen', False):
+        return True
+    return os.getenv('SERVE_FRONTEND', '').lower() in {'1', 'true', 'yes'}
+
 @app.get("/")
 async def root():
+    if not _should_serve_frontend():
+        return {"message": "CV Optimizer API is running."}
     index_path = os.path.join(frontend_dist, "index.html")
     if os.path.exists(index_path):
         return FileResponse(index_path)
@@ -160,7 +168,7 @@ def _run_analysis(job_id: str, content: bytes, job_description: str, user_instru
             JOBS[job_id]["stage"] = "canceled"
             return
 
-        # Phase 2 — structure (needs rewrite result)
+        # Phase 4 — structure (needs rewrite result)
         JOBS[job_id]["stage"] = "structuring"
         JOBS[job_id]["progress"] = 85
         logger.info(f"Job {job_id} — structuring CV")
@@ -336,8 +344,8 @@ async def rebuild_structure(job_id: str = Form(...), rewrite_text: str = Form(..
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-# Mount static files (assets, js, css) if the directory exists
-if os.path.exists(frontend_dist):
+# Mount static files only for bundled or explicitly enabled frontend serving.
+if _should_serve_frontend() and os.path.exists(frontend_dist):
     app.mount("/", StaticFiles(directory=frontend_dist, html=True), name="static")
 
 if __name__ == "__main__":

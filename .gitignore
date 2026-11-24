@@ -46,3 +46,6 @@ ENV/
 # Project specific
 *.pdf
 job_description.txt
+
+# Local analysis cache
+backend/cache/

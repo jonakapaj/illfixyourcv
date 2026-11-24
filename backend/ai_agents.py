@@ -1,15 +1,17 @@
 """
 ai_agents.py — Ollama-powered AI agents for CV analysis and optimisation.
 
-Four agents:
-  1. score_skills  → rates CV vs job description (0-100, dynamic skills from JD)
-  2. audit_cv      → executive summary, 3 gaps, roadmap, alignment matrix
-  3. rewrite_cv    → optimised CV sections using STAR method
-  4. structure_cv  → converts rewrite into structured JSON for PDF rendering
-  5. cover_letter  → tailored 3-paragraph cover letter
+Five agents:
+  1. score_skills          → rates CV vs job description (0-100, 6 skills taken from the JD)
+  2. audit_cv              → executive summary, 3 gaps, roadmap, alignment matrix
+  3. rewrite_cv            → optimised CV sections using the STAR method
+  4. structure_cv          → converts the rewrite into structured JSON for PDF rendering
+  5. generate_cover_letter → tailored 3-paragraph cover letter
 
-audit_cv and rewrite_cv are independent and are run in parallel by main.py
-together with score_skills, cutting wall-clock time roughly in half.
+backend/main.py runs score → audit → rewrite → structure sequentially, because a
+local Ollama instance serves one generation at a time. audit_cv and rewrite_cv do
+not depend on each other; audit_and_rewrite() runs them in a thread pool and is
+used by the Streamlit app (app.py).
 """
 
 import json
@@ -206,13 +208,13 @@ def score_skills(cv_text: str, job_desc: str) -> dict:
         return _default
 
 
-# ── Agent 2a: CV Auditor ──────────────────────────────────────────────────────
+# ── Agent 2: CV Auditor ──────────────────────────────────────────────────────
 
 def audit_cv(cv_text: str, job_desc: str) -> str:
     """
     Produces an audit report: executive summary, 3 gaps, improvement roadmap,
     and an alignment matrix built from the actual JD requirements.
-    Runs independently — can be parallelised with rewrite_cv.
+    Does not depend on rewrite_cv.
     """
     prompt = (
         "You are a senior hiring manager reviewing a candidate's CV for a specific role.\n"
@@ -237,12 +239,12 @@ def audit_cv(cv_text: str, job_desc: str) -> str:
     return _generate_text(prompt, num_predict=900, temperature=0.2, no_think=False)
 
 
-# ── Agent 2b: CV Rewriter ─────────────────────────────────────────────────────
+# ── Agent 3: CV Rewriter ─────────────────────────────────────────────────────
 
 def rewrite_cv(cv_text: str, job_desc: str, user_instructions: str = "") -> str:
     """
     Produces an optimised CV with STAR-method bullets, ATS-friendly formatting.
-    Runs independently — can be parallelised with audit_cv.
+    Does not depend on audit_cv.
     """
     prompt = (
         "You are an expert CV writer. Rewrite the candidate's CV optimised for the target role.\n"
@@ -281,7 +283,7 @@ def audit_and_rewrite(cv_text: str, job_desc: str, user_instructions: str = "") 
     return audit, rewrite
 
 
-# ── Agent 3: CV Structurer ────────────────────────────────────────────────────
+# ── Agent 4: CV Structurer ────────────────────────────────────────────────────
 
 def structure_cv(original_cv_text: str, rewrite_text: str) -> dict:
     """
@@ -327,7 +329,7 @@ def structure_cv(original_cv_text: str, rewrite_text: str) -> dict:
     }
 
 
-# ── Agent 4: Cover Letter ─────────────────────────────────────────────────────
+# ── Agent 5: Cover Letter ─────────────────────────────────────────────────────
 
 def generate_cover_letter(
     cv_text: str,
