@@ -1,33 +1,44 @@
-from fastapi import FastAPI, UploadFile, File, Form, HTTPException, BackgroundTasks
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import Response, FileResponse
-from fastapi.staticfiles import StaticFiles
+import logging
 import os
 import sys
-import fitz  # PyMuPDF
+import time
 import uuid
-import logging
-from typing import Dict, Optional
-from concurrent.futures import ThreadPoolExecutor
+from typing import Dict
 
-from .utils import extract_text_from_pdf, make_cache_key, get_cached, set_cached
-from pydantic import BaseModel
+from fastapi import BackgroundTasks, FastAPI, File, Form, HTTPException, UploadFile
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse, Response
+from fastapi.staticfiles import StaticFiles
 
-# Add current dir to path to import local modules
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
-from ai_agents import score_skills, audit_cv, rewrite_cv, structure_cv, generate_cover_letter
-from pdf_templates import build_corporate, build_tech_modern, build_minimal_slate, build_cover_letter
+# Make sibling modules importable both as `backend.main` (uvicorn) and as a
+# plain script (`python main.py`, PyInstaller bundle).
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from ai_agents import (  # noqa: E402
+    _resolve_model_name, audit_cv, contact_from_cv, generate_cover_letter, rewrite_cv, score_skills, structure_cv, warm_up,
+)
+from grounding import grounding_report  # noqa: E402
+from pdf_templates import build_corporate, build_cover_letter, build_minimal_slate, build_tech_modern  # noqa: E402
+from utils import extract_text_from_pdf, get_cached, make_cache_key, set_cached  # noqa: E402
 
 app = FastAPI(title="CV Optimizer API")
 
-ANALYSIS_CACHE_VERSION = "analysis-v5-sequential"
+# Bump when prompts or the result shape change, so stale cached results are ignored.
+ANALYSIS_CACHE_VERSION = "analysis-v6-grounded"
 
-# Simple in-memory job store for background tasks (id -> status/result)
+# In-memory job store (id -> status/result). Old finished jobs are pruned.
 JOBS: Dict[str, dict] = {}
+MAX_FINISHED_JOBS = 50
 
-# Logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("backend")
+
+
+@app.on_event("startup")
+def _load_model_in_background() -> None:
+    # Load the model while the user is still pasting the job ad.
+    import threading
+    threading.Thread(target=warm_up, daemon=True).start()
+
 
 # Enable CORS for React frontend
 app.add_middleware(
@@ -77,150 +88,134 @@ async def root():
         return FileResponse(index_path)
     return {"message": "CV Optimizer API is running. Build the frontend to see the UI."}
 
-class OptimizeRequest(BaseModel):
-    job_description: str
-    user_instructions: Optional[str] = ""
+def _new_job(**extra) -> str:
+    _prune_jobs()
+    job_id = str(uuid.uuid4())
+    JOBS[job_id] = {
+        "status": "queued", "stage": "queued", "progress": 0, "result": None,
+        "error": None, "cancel": False, "raw_text": None, "created": time.time(), "partial": {}, **extra,
+    }
+    return job_id
 
 
-class CoverLetterRequest(BaseModel):
-    job_description: str
-    full_name: str
-    target_company: str
-    target_role: str
-    key_achievement: str
-    tone: str = "Professional"
-    additional_notes: str = ""
+def _prune_jobs() -> None:
+    finished = [jid for jid, j in JOBS.items() if j["status"] in {"completed", "failed", "canceled"}]
+    finished.sort(key=lambda jid: JOBS[jid].get("created", 0))
+    for jid in finished[:-MAX_FINISHED_JOBS]:
+        JOBS.pop(jid, None)
+
 
 @app.post("/analyze")
 async def analyze_cv(
     background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     job_description: str = Form(...),
-    user_instructions: str = Form("")
+    user_instructions: str = Form(""),
 ):
-    """Enqueue analysis job and return a job id. Clients should poll /status and /result."""
+    """Enqueue an analysis job and return its id. Clients poll /status and /result."""
     content = await file.read()
 
-    cache_key = make_cache_key(content, job_description, ANALYSIS_CACHE_VERSION)
+    cache_key = make_cache_key(content, job_description, user_instructions, ANALYSIS_CACHE_VERSION)
     cached = get_cached(cache_key)
     if cached:
         logger.info("Returning cached analysis result")
-        return {"job_id": None, "status": "completed", "result": cached}
+        # Register a finished job so /structure (Apply edits) also works for cached results.
+        job_id = _new_job(status="completed", stage="completed", progress=100, result=cached,
+                          raw_text=extract_text_from_pdf(content), job_description=job_description)
+        return {"job_id": job_id, "status": "completed", "result": cached}
 
-    job_id = str(uuid.uuid4())
-    JOBS[job_id] = {"status": "queued", "stage": "queued", "progress": 0, "result": None, "error": None, "cancel": False, "raw_text": None}
-    logger.info(f"Queued job {job_id}")
-    background_tasks.add_task(_run_analysis, job_id, content, job_description, user_instructions)
+    job_id = _new_job(job_description=job_description)
+    logger.info("Queued job %s", job_id)
+    background_tasks.add_task(_run_analysis, job_id, content, job_description, user_instructions, cache_key)
     return {"job_id": job_id, "status": "queued"}
 
 
-def _run_analysis(job_id: str, content: bytes, job_description: str, user_instructions: str):
-    try:
-        JOBS[job_id]["status"] = "running"
-        JOBS[job_id]["stage"] = "extracting"
-        JOBS[job_id]["progress"] = 5
-        logger.info(f"Job {job_id} running")
+@app.get("/health")
+def health():
+    """Backend status and the model in use (shown in the UI header)."""
+    return {"status": "ok", "model": _resolve_model_name()}
 
+
+class _Canceled(Exception):
+    pass
+
+
+def _run_analysis(job_id: str, content: bytes, job_description: str, user_instructions: str, cache_key: str):
+    job = JOBS[job_id]
+
+    def stage(name: str, progress: int) -> None:
+        if job.get("cancel"):
+            raise _Canceled()
+        job.update(status="running", stage=name, progress=progress)
+        logger.info("Job %s: %s", job_id, name)
+
+    try:
+        stage("extracting", 5)
         raw_text = extract_text_from_pdf(content)
         if not raw_text.strip():
             raise RuntimeError("Could not extract text from PDF (empty after OCR)")
+        job["raw_text"] = raw_text
 
-        JOBS[job_id]["raw_text"] = raw_text
-
-        if JOBS[job_id].get("cancel"):
-            JOBS[job_id]["status"] = "canceled"
-            JOBS[job_id]["stage"] = "canceled"
-            return
-
-        # Phase 1 — scoring (sequential: Ollama handles one request at a time anyway)
-        JOBS[job_id]["stage"] = "scoring"
-        JOBS[job_id]["progress"] = 20
-        logger.info(f"Job {job_id} — scoring skills")
+        stage("scoring", 15)
         scores = score_skills(raw_text, job_description)
-        JOBS[job_id]["progress"] = 35
+        job["partial"]["scores"] = scores  # shown in the UI while the rest runs
 
-        if JOBS[job_id].get("cancel"):
-            JOBS[job_id]["status"] = "canceled"
-            JOBS[job_id]["stage"] = "canceled"
-            return
-
-        # Phase 2 — audit
-        JOBS[job_id]["stage"] = "auditing"
-        JOBS[job_id]["progress"] = 40
-        logger.info(f"Job {job_id} — auditing CV")
+        stage("auditing", 35)
         audit = audit_cv(raw_text, job_description)
-        JOBS[job_id]["progress"] = 60
+        job["partial"]["audit"] = audit
 
-        if JOBS[job_id].get("cancel"):
-            JOBS[job_id]["status"] = "canceled"
-            JOBS[job_id]["stage"] = "canceled"
-            return
-
-        # Phase 3 — rewrite
-        JOBS[job_id]["stage"] = "rewriting"
-        JOBS[job_id]["progress"] = 65
-        logger.info(f"Job {job_id} — rewriting CV")
+        stage("rewriting", 60)
         rewrite = rewrite_cv(raw_text, job_description, user_instructions)
-        JOBS[job_id]["progress"] = 80
 
-        if JOBS[job_id].get("cancel"):
-            JOBS[job_id]["status"] = "canceled"
-            JOBS[job_id]["stage"] = "canceled"
-            return
-
-        # Phase 4 — structure (needs rewrite result)
-        JOBS[job_id]["stage"] = "structuring"
-        JOBS[job_id]["progress"] = 85
-        logger.info(f"Job {job_id} — structuring CV")
+        stage("structuring", 95)
         cv_data = structure_cv(raw_text, rewrite)
 
-        result = {"scores": scores, "audit": audit, "rewrite": rewrite, "cv_data": cv_data}
-        JOBS[job_id]["status"] = "completed"
-        JOBS[job_id]["stage"] = "completed"
-        JOBS[job_id]["progress"] = 100
-        JOBS[job_id]["result"] = result
+        result = {
+            "scores": scores,
+            "audit": audit,
+            "rewrite": rewrite,
+            "cv_data": cv_data,
+            # What the rewrite still says that the CV doesn't back up (shown to the user).
+            "grounding": grounding_report(rewrite, raw_text, job_description),
+        }
+        job.update(status="completed", stage="completed", progress=100, result=result)
 
-        # Only cache if the result contains real content, not fallback defaults
-        scores_are_default = list(scores.values()) == [50, 50, 50, 50, 50, 50]
-        has_content = audit.strip() and rewrite.strip() and not scores_are_default
-        if has_content:
-            cache_key = make_cache_key(content, job_description, ANALYSIS_CACHE_VERSION)
+        # Only cache real results, not fallback defaults.
+        scores_are_default = list(scores.values()) == [50] * 6
+        if audit.strip() and rewrite.strip() and not scores_are_default:
             set_cached(cache_key, result)
-            logger.info(f"Job {job_id} completed and cached")
+            logger.info("Job %s completed and cached", job_id)
         else:
-            logger.warning(f"Job {job_id} completed with fallback/empty content — skipping cache")
+            logger.warning("Job %s completed with fallback/empty content; not cached", job_id)
+    except _Canceled:
+        job.update(status="canceled", stage="canceled")
+        logger.info("Job %s canceled", job_id)
     except Exception as e:
-        logger.exception(f"Job {job_id} failed: {e}")
-        JOBS[job_id]["status"] = "failed"
-        JOBS[job_id]["stage"] = "failed"
-        JOBS[job_id]["error"] = str(e)
+        logger.exception("Job %s failed: %s", job_id, e)
+        job.update(status="failed", stage="failed", error=str(e))
+
+
+TEMPLATES = {"corporate": build_corporate, "tech": build_tech_modern, "minimal": build_minimal_slate}
+
 
 @app.post("/generate")
-async def generate_pdf(template_id: str, cv_data: dict):
+def generate_pdf(template_id: str, cv_data: dict):
+    if template_id not in TEMPLATES:
+        raise HTTPException(status_code=400, detail="Invalid template ID")
     try:
-        templates = {
-            "corporate": build_corporate,
-            "tech": build_tech_modern,
-            "minimal": build_minimal_slate
-        }
-        
-        if template_id not in templates:
-            raise HTTPException(status_code=400, detail="Invalid template ID")
-            
-        pdf_bytes = templates[template_id](cv_data)
-        
-        return Response(
-            content=pdf_bytes,
-            media_type="application/pdf",
-            headers={"Content-Disposition": f"attachment; filename=optimised_cv_{template_id}.pdf"}
-        )
+        pdf_bytes = TEMPLATES[template_id](cv_data)
     except Exception as e:
-        print(f"Error: {e}")
+        logger.exception("PDF generation failed")
         raise HTTPException(status_code=500, detail=str(e))
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename=optimised_cv_{template_id}.pdf"},
+    )
 
 
 @app.post("/cover-letter")
-async def generate_cover_letter_endpoint(
+def generate_cover_letter_endpoint(
     file: UploadFile = File(...),
     job_description: str = Form(...),
     full_name: str = Form(...),
@@ -230,7 +225,7 @@ async def generate_cover_letter_endpoint(
     tone: str = Form("Professional"),
     additional_notes: str = Form(""),
 ):
-    content = await file.read()
+    content = file.file.read()
     cache_key = make_cache_key(
         content,
         job_description,
@@ -240,7 +235,7 @@ async def generate_cover_letter_endpoint(
         key_achievement,
         tone,
         additional_notes,
-        "cover-letter",
+        "cover-letter-v3",
     )
     cached = get_cached(cache_key)
     if cached:
@@ -263,6 +258,7 @@ async def generate_cover_letter_endpoint(
 
     result = {
         "cover_letter": cover_letter,
+        "contact": {k: v for k, v in contact_from_cv(raw_text).items() if k != "name"},
         "full_name": full_name,
         "target_company": target_company,
         "target_role": target_role,
@@ -273,16 +269,18 @@ async def generate_cover_letter_endpoint(
 
 
 @app.post("/cover-letter-pdf")
-async def cover_letter_pdf(
+def cover_letter_pdf(
     cover_letter: str = Form(...),
     full_name: str = Form(...),
     email: str = Form(""),
     phone: str = Form(""),
     location: str = Form(""),
+    linkedin: str = Form(""),
     target_company: str = Form(""),
     target_role: str = Form(""),
 ):
     pdf_bytes = build_cover_letter({
+        "linkedin": linkedin,
         "cover_letter": cover_letter,
         "full_name": full_name,
         "email": email,
@@ -303,7 +301,11 @@ async def job_status(job_id: str):
     job = JOBS.get(job_id)
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
-    return {"job_id": job_id, "status": job["status"], "stage": job.get("stage"), "progress": job.get("progress", 0), "error": job.get("error")}
+    return {
+        "job_id": job_id, "status": job["status"], "stage": job.get("stage"),
+        "progress": job.get("progress", 0), "error": job.get("error"),
+        "partial": job.get("partial") or {},
+    }
 
 
 @app.get("/result/{job_id}")
@@ -321,28 +323,28 @@ async def cancel_job(job_id: str):
     job = JOBS.get(job_id)
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
-    job["cancel"] = True
-    job["stage"] = "canceling"
-    job["status"] = "canceling"
+    if job["status"] in {"completed", "failed", "canceled"}:
+        return {"job_id": job_id, "status": job["status"]}
+    job.update(cancel=True, stage="canceling", status="canceling")
     return {"job_id": job_id, "status": "canceling"}
 
 
 @app.post("/structure")
-async def rebuild_structure(job_id: str = Form(...), rewrite_text: str = Form(...)):
+def rebuild_structure(job_id: str = Form(...), rewrite_text: str = Form(...)):
+    """Re-structure an edited rewrite into cv_data for the PDF."""
     job = JOBS.get(job_id)
     if not job:
-        raise HTTPException(status_code=404, detail="Job not found")
+        raise HTTPException(status_code=404, detail="Job not found. Re-run the analysis.")
+    raw_text = job.get("raw_text") or ""
     try:
-        # Use stored raw_text to rebuild structured cv_data
-        raw = job.get("raw_text", "")
-        cv_data = structure_cv(raw, rewrite_text)
-        # update job result cv_data
-        if job.get("result"):
-            job["result"]["cv_data"] = cv_data
-        job["stage"] = "structuring"
-        return {"cv_data": cv_data}
+        cv_data = structure_cv(raw_text, rewrite_text)
     except Exception as e:
+        logger.exception("Re-structuring failed")
         raise HTTPException(status_code=500, detail=str(e))
+    grounding = grounding_report(rewrite_text, raw_text, job.get("job_description") or "")
+    if job.get("result"):
+        job["result"].update(cv_data=cv_data, rewrite=rewrite_text, grounding=grounding)
+    return {"cv_data": cv_data, "grounding": grounding}
 
 # Mount static files only for bundled or explicitly enabled frontend serving.
 if _should_serve_frontend() and os.path.exists(frontend_dist):

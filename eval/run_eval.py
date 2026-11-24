@@ -7,7 +7,7 @@ and scores their output with deterministic checks; no LLM-as-judge.
 Checks
   score_skills   6 skills, integer 0-100, not the fallback defaults;
                  strong-fit cases must score higher on average than weak-fit ones
-  audit_cv       all four required sections present
+  audit_cv       all three required sections present
   rewrite_cv     required sections present; NO INVENTED ACHIEVEMENTS:
                    - every number in the rewrite must appear in the original CV
                    - no skill the CV lacks (case "missing_skills") is claimed
@@ -43,7 +43,7 @@ from cases import CASES  # noqa: E402
 
 RESULTS_DIR = Path(__file__).resolve().parent / "results"
 
-AUDIT_SECTIONS = ["EXECUTIVE SUMMARY", "CRITICAL GAPS", "IMPROVEMENT ROADMAP", "ALIGNMENT MATRIX"]
+AUDIT_SECTIONS = ["EXECUTIVE SUMMARY", "CRITICAL GAPS", "ALIGNMENT MATRIX"]
 REWRITE_SECTIONS = ["PROFESSIONAL SUMMARY", "CORE SKILLS", "PROFESSIONAL EXPERIENCE", "EDUCATION"]
 DEFAULT_SCORES = {
     "Technical Skills": 50, "Communication": 50, "Experience Fit": 50,
@@ -56,13 +56,13 @@ DEFAULT_SCORES = {
 _NUM_RE = re.compile(r"\d+(?:[.,]\d+)*")
 
 
+_LIST_MARKER_RE = re.compile(r"^\s*\d+[.)]\s+", re.MULTILINE)
+
+
 def numbers_in(text: str) -> set[str]:
-    """Numeric tokens, normalised so '11,500' == '11500' and '4.0' stays '4.0'."""
-    out = set()
-    for tok in _NUM_RE.findall(text or ""):
-        tok = tok.replace(",", "")
-        out.add(tok)
-    return out
+    """Numeric tokens, normalised so '11,500' == '11500'. List markers ('1. ', '2) ') are ignored."""
+    text = _LIST_MARKER_RE.sub("", text or "")
+    return {tok.replace(",", "") for tok in _NUM_RE.findall(text)}
 
 
 def ungrounded_numbers(output: str, source: str) -> list[str]:

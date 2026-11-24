@@ -1,8 +1,8 @@
-import { useState } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Upload, FileText, Download, Check, X, Copy, RotateCcw, Loader2, AlertCircle,
-  Sun, Moon, Sparkles, Target, ShieldCheck, ClipboardList, PenLine, ChevronDown, FileCheck2,
+  Sun, Moon, Target, ShieldCheck, ClipboardList, PenLine, ChevronDown,
 } from 'lucide-react';
 import axios from 'axios';
 
@@ -10,6 +10,18 @@ import axios from 'axios';
 const API_BASE = import.meta.env.VITE_API_BASE || "";
 
 const THEME_IDS = ['light', 'dark'];
+
+// three.js is only loaded when the 3D scene is first shown.
+const Scene3D = lazy(() => import('./Scene3D.jsx'));
+const ACCENTS = { light: { accent: '#2f4bff', ink: '#0f1115' }, dark: { accent: '#5b72ff', ink: '#12151c' } };
+
+function Scene({ theme, busy, className }) {
+  return (
+    <Suspense fallback={<div className={className} />}>
+      <Scene3D {...ACCENTS[theme]} busy={busy} className={className} />
+    </Suspense>
+  );
+}
 
 const STEPS = [
   { key: 'extracting',  label: 'Reading your CV' },
@@ -35,14 +47,35 @@ const scoreBand = (v) =>
 
 function Logo() {
   return (
-    <div className="flex items-center gap-2.5">
-      <div className="w-9 h-9 rounded-xl flex items-center justify-center text-white shadow-md" style={{ background: 'var(--grad)' }}>
-        <FileCheck2 size={18} strokeWidth={2.4} />
+    <div className="flex items-center gap-3">
+      <div className="w-9 h-9 rounded-lg flex items-center justify-center mono text-[13px] font-semibold"
+           style={{ background: 'var(--ink)', color: 'var(--surface)' }}>
+        cv<span style={{ color: 'var(--accent)' }}>_</span>
       </div>
       <div className="leading-tight">
-        <div className="font-extrabold text-[17px] tracking-tight">Sentinel</div>
-        <div className="text-[11px] muted font-medium">AI CV optimizer</div>
+        <div className="font-bold text-[17px] tracking-tight">Sentinel</div>
+        <div className="mono text-[10.5px] muted">cv.audit · rewrite · export</div>
       </div>
+    </div>
+  );
+}
+
+function ModelStatus() {
+  const [model, setModel] = useState(null);
+  const [down, setDown] = useState(false);
+  useEffect(() => {
+    let alive = true;
+    axios.get(`${API_BASE}/health`)
+      .then((r) => alive && setModel(r.data.model))
+      .catch(() => alive && setDown(true));
+    return () => { alive = false; };
+  }, []);
+  return (
+    <div className="hidden sm:flex items-center gap-2 mono text-[11.5px] px-3 py-1.5 rounded-lg border"
+         style={{ borderColor: 'var(--rule)', background: 'var(--surface)' }}>
+      <span className="status-dot" style={down ? { background: 'var(--danger)', boxShadow: 'none' } : undefined} />
+      <span className="muted">{down ? 'backend offline' : 'local'}</span>
+      {model && <span>{model}</span>}
     </div>
   );
 }
@@ -79,83 +112,104 @@ function TemplateSketch({ id }) {
   );
 }
 
-function EmptyState() {
+function EmptyState({ theme }) {
   const features = [
-    { icon: Target, title: 'Match score', text: 'See how your CV scores on the six things this job cares about most.' },
-    { icon: ClipboardList, title: 'Gap audit', text: 'Get the three critical gaps and a step-by-step plan to close them.' },
-    { icon: PenLine, title: 'Honest rewrite', text: 'A tailored rewrite that only uses experience you actually have.' },
+    { icon: Target, tag: 'score', title: 'Match score', text: 'Six requirements from the job ad, scored only on evidence in your CV.' },
+    { icon: ClipboardList, tag: 'audit', title: 'Gap audit', text: 'The three gaps that matter most, each with a concrete fix.' },
+    { icon: PenLine, tag: 'rewrite', title: 'Honest rewrite', text: 'Tailored wording, fact-checked so nothing is invented.' },
   ];
   return (
-    <div className="py-6">
-      <span className="pill mb-5"><Sparkles size={13} /> Runs privately on your computer</span>
-      <h1 className="text-4xl md:text-5xl xl:text-[56px] font-extrabold tracking-tight leading-[1.05] max-w-3xl">
-        Land more interviews with a CV <span className="grad-text">tailored to every job</span>
-      </h1>
-      <p className="text-lg ink-2 mt-5 max-w-2xl">
-        Paste a job description, upload your CV, and get a match score, a gap audit and a rewritten CV ready to export as PDF.
-      </p>
+    <div className="py-2">
+      <div className="grid grid-cols-1 xl:grid-cols-[1.05fr_1fr] gap-6 items-center">
+        <div>
+          <div className="console-label mb-5"><b>&gt;</b> sentinel ready <span className="caret" /></div>
+          <h1 className="text-4xl md:text-5xl xl:text-[58px] font-bold tracking-[-0.035em] leading-[1.02] max-w-2xl">
+            Tailor your CV to every job you apply for.
+          </h1>
+          <p className="text-[17px] ink-2 mt-5 max-w-xl leading-relaxed">
+            Paste a job ad, upload your CV, and get a match score, a gap audit and a rewrite you can export as a PDF.
+            Everything runs on your own machine.
+          </p>
+          <div className="flex flex-wrap gap-2 mt-6 mono text-[11.5px]">
+            {['no cloud upload', 'fact-checked output', 'pdf export'].map((t) => (
+              <span key={t} className="px-2.5 py-1 rounded-md border" style={{ borderColor: 'var(--rule-strong)', background: 'var(--surface)' }}>
+                <span className="accent">✓</span> {t}
+              </span>
+            ))}
+          </div>
+        </div>
+        <Scene theme={theme} busy={false} className="h-[340px] md:h-[420px] w-full" />
+      </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mt-12">
-        {features.map(({ icon: Icon, title, text }) => (
-          <div key={title} className="card p-6">
-            <div className="w-11 h-11 rounded-xl flex items-center justify-center mb-4" style={{ background: 'var(--accent-soft)', color: 'var(--accent-text)' }}>
-              <Icon size={20} />
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
+        {features.map(({ icon: Icon, tag, title, text }) => (
+          <div key={title} className="card p-5">
+            <div className="flex items-center justify-between mb-4">
+              <div className="w-10 h-10 rounded-lg flex items-center justify-center" style={{ background: 'var(--accent-soft)', color: 'var(--accent-text)' }}>
+                <Icon size={19} />
+              </div>
+              <span className="console-label">/{tag}</span>
             </div>
-            <div className="font-bold mb-1">{title}</div>
+            <div className="font-semibold mb-1">{title}</div>
             <div className="text-sm muted leading-relaxed">{text}</div>
           </div>
         ))}
-      </div>
-
-      <div className="card p-5 mt-5 flex items-center gap-4">
-        <ShieldCheck size={22} style={{ color: 'var(--good)' }} className="shrink-0" />
-        <p className="text-sm ink-2">
-          <span className="font-semibold" style={{ color: 'var(--ink)' }}>No made-up achievements.</span>{' '}
-          Skills the job asks for that aren't in your CV are flagged as gaps, never quietly added.
-        </p>
       </div>
     </div>
   );
 }
 
-function ProgressView({ jobStage, jobStatus, jobProgress, jobId, onCancel }) {
+function useElapsed(running) {
+  const [secs, setSecs] = useState(0);
+  useEffect(() => {
+    if (!running) return undefined;
+    const id = setInterval(() => setSecs((x) => x + 1), 1000);
+    return () => clearInterval(id);
+  }, [running]);
+  return secs;
+}
+
+const fmt = (s) => `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
+
+function ProgressView({ jobStage, jobStatus, jobProgress, jobId, onCancel, theme, compact = false }) {
   const pct = Math.max(jobProgress || 0, 0);
   const currentIdx = STEPS.findIndex((s) => s.key === jobStage);
+  const elapsed = useElapsed(jobStatus !== 'completed');
   return (
-    <div className="max-w-xl mx-auto py-8">
-      <div className="card p-8" style={{ boxShadow: 'var(--shadow-lg)' }}>
-        <div className="flex items-center justify-between mb-2">
-          <h2 className="text-2xl font-extrabold tracking-tight">Optimizing your CV</h2>
-          <span className="text-sm font-bold accent">{pct}%</span>
+    <div className={compact ? '' : 'max-w-2xl mx-auto'}>
+      <div className="card overflow-hidden" style={{ boxShadow: compact ? 'var(--shadow)' : 'var(--shadow-lg)' }}>
+        {!compact && <Scene theme={theme} busy className="h-[220px] w-full" />}
+        <div className="p-7">
+          <div className="flex items-center justify-between mb-1">
+            <h2 className="text-2xl font-bold tracking-tight">Reviewing your CV</h2>
+            <span className="mono text-sm accent">{pct}%</span>
+          </div>
+          <p className="text-sm muted mb-5">{compact ? 'Your score is in. Working on the rest…' : 'Results appear as each step finishes.'}</p>
+          <div className="h-1.5 rounded-full overflow-hidden mb-6" style={{ background: 'var(--track)' }}>
+            <motion.div className="h-full rounded-full" style={{ background: 'var(--accent)' }} animate={{ width: `${pct}%` }} transition={{ duration: 0.5 }} />
+          </div>
+          <div className="rounded-lg px-4 py-3 space-y-1.5" style={{ background: 'var(--surface-2)', border: '1px solid var(--rule)' }}>
+            {STEPS.map((step, i) => {
+              const done = i < currentIdx || jobStatus === 'completed';
+              const active = i === currentIdx;
+              return (
+                <div key={step.key} className={`log-line ${done || active ? '' : 'muted'}`} style={{ opacity: done || active ? 1 : 0.55 }}>
+                  <span className="w-4 flex justify-center">
+                    {done ? <Check size={13} strokeWidth={3} style={{ color: 'var(--good)' }} />
+                      : active ? <Loader2 size={13} className="animate-spin accent" /> : <span className="muted">·</span>}
+                  </span>
+                  <span className="flex-1">{step.label}</span>
+                  <span className="muted">{done ? 'done' : active ? fmt(elapsed) : ''}</span>
+                </div>
+              );
+            })}
+          </div>
+          {jobId && jobStatus !== 'completed' && jobStatus !== 'failed' && (
+            <button onClick={onCancel} className="btn btn-secondary mt-6">
+              <X size={15} /> {jobStatus === 'canceling' ? 'Cancelling…' : 'Cancel'}
+            </button>
+          )}
         </div>
-        <p className="text-sm muted mb-6">This usually takes a few minutes with a local model.</p>
-        <div className="h-2.5 rounded-full overflow-hidden mb-8" style={{ background: 'var(--track)' }}>
-          <motion.div className="h-full rounded-full" style={{ background: 'var(--grad)' }} animate={{ width: `${pct}%` }} transition={{ duration: 0.5 }} />
-        </div>
-        <ol className="space-y-4">
-          {STEPS.map((step, i) => {
-            const done = i < currentIdx || jobStatus === 'completed';
-            const active = i === currentIdx;
-            return (
-              <li key={step.key} className="flex items-center gap-3 text-sm">
-                <span className="w-7 h-7 rounded-full flex items-center justify-center shrink-0"
-                      style={{
-                        background: done ? 'var(--grad)' : active ? 'var(--accent-soft)' : 'var(--surface-2)',
-                        color: done ? '#fff' : 'var(--accent-text)',
-                        border: done || active ? 'none' : '1px solid var(--rule)',
-                      }}>
-                  {done ? <Check size={14} strokeWidth={3} /> : active ? <Loader2 size={14} className="animate-spin" /> : <span className="text-xs muted">{i + 1}</span>}
-                </span>
-                <span className={done || active ? 'font-semibold' : 'muted'}>{step.label}</span>
-              </li>
-            );
-          })}
-        </ol>
-        {jobId && jobStatus !== 'completed' && jobStatus !== 'failed' && (
-          <button onClick={onCancel} className="btn btn-secondary mt-8">
-            <X size={15} /> {jobStatus === 'canceling' ? 'Cancelling…' : 'Cancel'}
-          </button>
-        )}
       </div>
     </div>
   );
@@ -166,16 +220,11 @@ function ScoreRing({ value }) {
   const c = 2 * Math.PI * r;
   return (
     <svg width="132" height="132" viewBox="0 0 132 132" role="img" aria-label={`Overall match ${value} out of 100`}>
-      <defs>
-        <linearGradient id="ringGrad" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stopColor="#5b4cf0" /><stop offset="55%" stopColor="#9b4dfa" /><stop offset="100%" stopColor="#ec4899" />
-        </linearGradient>
-      </defs>
       <circle cx="66" cy="66" r={r} fill="none" stroke="var(--track)" strokeWidth="12" />
-      <motion.circle cx="66" cy="66" r={r} fill="none" stroke="url(#ringGrad)" strokeWidth="12" strokeLinecap="round"
+      <motion.circle cx="66" cy="66" r={r} fill="none" stroke="var(--accent)" strokeWidth="12" strokeLinecap="round"
                      strokeDasharray={c} initial={{ strokeDashoffset: c }} animate={{ strokeDashoffset: c * (1 - value / 100) }}
                      transition={{ duration: 0.9, ease: 'easeOut' }} transform="rotate(-90 66 66)" />
-      <text x="66" y="64" textAnchor="middle" fontSize="34" fontWeight="800" fill="var(--ink)">{value}</text>
+      <text x="66" y="64" textAnchor="middle" fontSize="34" fontWeight="700" fill="var(--ink)" fontFamily="var(--font-mono)">{value}</text>
       <text x="66" y="86" textAnchor="middle" fontSize="12" fontWeight="600" fill="var(--muted)">out of 100</text>
     </svg>
   );
@@ -191,7 +240,7 @@ function ScoreCard({ scores }) {
         <ScoreRing value={avg} />
         <div>
           <div className="text-xs font-semibold uppercase tracking-wider muted mb-1">Overall match</div>
-          <div className="text-2xl font-extrabold tracking-tight" style={{ color: band.color }}>{band.label}</div>
+          <div className="text-2xl font-bold tracking-tight" style={{ color: band.color }}>{band.label}</div>
           <p className="text-sm muted mt-1">Based on six requirements from the job description.</p>
         </div>
       </div>
@@ -215,6 +264,32 @@ function ScoreCard({ scores }) {
   );
 }
 
+function GroundingNotice({ report }) {
+  if (!report) return null;
+  const terms = report.terms || [];
+  const numbers = report.numbers || [];
+  const clean = !terms.length && !numbers.length;
+  const tone = clean ? 'var(--good)' : 'var(--warn)';
+  return (
+    <div className="card px-5 py-4 flex items-start gap-3 text-sm" style={{ borderColor: `color-mix(in srgb, ${tone} 45%, var(--rule))` }}>
+      {clean
+        ? <ShieldCheck size={19} style={{ color: tone }} className="shrink-0 mt-0.5" />
+        : <AlertCircle size={19} style={{ color: tone }} className="shrink-0 mt-0.5" />}
+      <div>
+        <div className="font-semibold">{clean ? 'Fact-checked against your CV' : 'Double-check these before sending'}</div>
+        <div className="ink-2 mt-0.5">
+          {clean
+            ? 'No skills or numbers were added that your original CV doesn’t contain.'
+            : <>The rewrite mentions things we couldn&rsquo;t find in your original CV
+                {terms.length > 0 && <>: <b>{terms.join(', ')}</b></>}
+                {numbers.length > 0 && <>{terms.length ? '; numbers ' : ': numbers '}<b>{numbers.join(', ')}</b></>}.
+                {' '}Remove them unless they&rsquo;re true.</>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── App ──────────────────────────────────────────────────────────────────────
 
 const App = () => {
@@ -230,6 +305,7 @@ const App = () => {
   const [jobStatus, setJobStatus] = useState(null);
   const [jobStage, setJobStage] = useState(null);
   const [jobProgress, setJobProgress] = useState(0);
+  const [partial, setPartial] = useState({});
   const [toasts, setToasts] = useState([]);
   const [editedRewrite, setEditedRewrite] = useState(null);
   const [selectedTemplate, setSelectedTemplate] = useState('corporate');
@@ -243,6 +319,7 @@ const App = () => {
     fullName: '', targetCompany: '', targetRole: '', keyAchievement: '', tone: 'Professional', additionalNotes: '',
   });
   const [coverLetter, setCoverLetter] = useState('');
+  const [coverContact, setCoverContact] = useState({});
   const [coverLoading, setCoverLoading] = useState(false);
   const [exporting, setExporting] = useState(false);
 
@@ -272,6 +349,7 @@ const App = () => {
     setResults(null);
     setJobId(null);
     setResultJobId(null);
+    setPartial({});
     setJobStatus('queued');
     setJobStage('queued');
     setJobProgress(0);
@@ -284,9 +362,10 @@ const App = () => {
       const response = await axios.post(`${API_BASE}/analyze`, formData);
       const body = response.data;
       if (body.status === 'completed' && body.result) {
-        // Cached result: no job on the server, so edits can't be re-structured.
+        // Cached result: the server still registers a job so Apply edits works.
         setResults(body.result);
         setEditedRewrite(body.result.rewrite || null);
+        setResultJobId(body.job_id || null);
         setJobStatus('completed');
         setLoading(false);
       } else if (body.job_id) {
@@ -311,6 +390,7 @@ const App = () => {
       setJobStatus(s);
       setJobStage(statusResp.data.stage);
       setJobProgress(statusResp.data.progress ?? 0);
+      setPartial(statusResp.data.partial || {});
       if (s === 'completed') {
         const res = await axios.get(`${API_BASE}/result/${id}`);
         setResults(res.data);
@@ -362,7 +442,7 @@ const App = () => {
       payload.append('job_id', resultJobId);
       payload.append('rewrite_text', editedRewrite);
       const resp = await axios.post(`${API_BASE}/structure`, payload);
-      setResults((prev) => ({ ...prev, cv_data: resp.data.cv_data }));
+      setResults((prev) => ({ ...prev, cv_data: resp.data.cv_data, grounding: resp.data.grounding ?? prev.grounding }));
       addToast({ type: 'success', msg: 'Edits applied. The PDF will use them.' });
     } catch {
       addToast({ type: 'error', msg: 'Failed to re-structure CV.' });
@@ -410,6 +490,7 @@ const App = () => {
       payload.append('additional_notes', coverForm.additionalNotes);
       const response = await axios.post(`${API_BASE}/cover-letter`, payload);
       setCoverLetter(response.data.cover_letter || '');
+      setCoverContact(response.data.contact || {});
       addToast({ type: 'success', msg: 'Cover letter ready.' });
     } catch (err) {
       addToast({ type: 'error', msg: err.response?.data?.detail || 'Failed to generate cover letter.' });
@@ -424,9 +505,10 @@ const App = () => {
       const payload = new FormData();
       payload.append('cover_letter', coverLetter);
       payload.append('full_name', coverForm.fullName);
-      payload.append('email', '');
-      payload.append('phone', '');
-      payload.append('location', '');
+      payload.append('email', coverContact.email || '');
+      payload.append('phone', coverContact.phone || '');
+      payload.append('location', coverContact.location || '');
+      payload.append('linkedin', coverContact.linkedin || '');
       payload.append('target_company', coverForm.targetCompany);
       payload.append('target_role', coverForm.targetRole);
       const response = await axios.post(`${API_BASE}/cover-letter-pdf`, payload, { responseType: 'blob' });
@@ -450,10 +532,13 @@ const App = () => {
       <header className="sticky top-0 z-30 backdrop-blur-md border-b" style={{ borderColor: 'var(--rule)', background: 'color-mix(in srgb, var(--bg) 78%, transparent)' }}>
         <div className="max-w-[1400px] mx-auto px-5 md:px-8 h-16 flex items-center justify-between">
           <Logo />
+          <div className="flex items-center gap-3">
+          <ModelStatus />
           <button type="button" className="btn btn-secondary !px-3" onClick={() => pickTheme(theme === 'light' ? 'dark' : 'light')}
                   aria-label={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}>
             {theme === 'light' ? <Moon size={16} /> : <Sun size={16} />}
           </button>
+          </div>
         </div>
       </header>
 
@@ -461,18 +546,18 @@ const App = () => {
         {/* ── Application form ────────────────────────────────────────────── */}
         <aside className="card p-6 lg:sticky lg:top-24 space-y-6">
           <div>
-            <h2 className="text-lg font-extrabold tracking-tight">Your application</h2>
+            <h2 className="text-lg font-bold tracking-tight">Your application</h2>
             <p className="text-sm muted">Three quick steps.</p>
           </div>
 
           <section>
-            <div className="flex items-center gap-2.5 mb-2"><span className="step-badge">1</span><span className="field-label !mb-0">Job description</span></div>
+            <div className="flex items-center gap-2.5 mb-2"><span className="step-badge">01</span><span className="field-label !mb-0">Job description</span></div>
             <textarea className="field h-36 resize-y" placeholder="Paste the full job posting here…"
                       value={jobDesc} onChange={(e) => setJobDesc(e.target.value)} />
           </section>
 
           <section>
-            <div className="flex items-center gap-2.5 mb-2"><span className="step-badge">2</span><span className="field-label !mb-0">Your CV</span></div>
+            <div className="flex items-center gap-2.5 mb-2"><span className="step-badge">02</span><span className="field-label !mb-0">Your CV</span></div>
             <label className="dropzone flex items-center gap-3 px-4 py-4" data-filled={!!file}>
               <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
                    style={{ background: file ? 'var(--grad)' : 'var(--surface)', color: file ? '#fff' : 'var(--accent-text)', border: file ? 'none' : '1px solid var(--rule)' }}>
@@ -487,13 +572,13 @@ const App = () => {
           </section>
 
           <section>
-            <div className="flex items-center gap-2.5 mb-2"><span className="step-badge">3</span><span className="field-label !mb-0">Anything to emphasise? <span className="muted font-normal">(optional)</span></span></div>
+            <div className="flex items-center gap-2.5 mb-2"><span className="step-badge">03</span><span className="field-label !mb-0">Anything to emphasise? <span className="muted font-normal">(optional)</span></span></div>
             <input className="field" placeholder="e.g. Keep it to one page, highlight leadership"
                    value={extraInstructions} onChange={(e) => setExtraInstructions(e.target.value)} />
           </section>
 
           <button onClick={runAnalysis} disabled={!file || !jobDesc || loading} className="btn btn-primary btn-lg w-full">
-            {loading ? <><Loader2 size={17} className="animate-spin" /> Optimizing…</> : <><Sparkles size={17} /> Optimize my CV</>}
+            {loading ? <><Loader2 size={17} className="animate-spin" /> Optimizing…</> : <>Review my CV <span className="mono opacity-60 text-xs">↵</span></>}
           </button>
 
           <div className="hairline" />
@@ -543,7 +628,7 @@ const App = () => {
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: 'var(--accent-soft)', color: 'var(--accent-text)' }}><FileText size={18} /></div>
                   <div>
-                    <h2 className="font-extrabold text-lg tracking-tight">Cover letter</h2>
+                    <h2 className="font-bold text-lg tracking-tight">Cover letter</h2>
                     {coverForm.targetCompany && <p className="text-sm muted">{coverForm.targetRole} at {coverForm.targetCompany}</p>}
                   </div>
                 </div>
@@ -563,13 +648,32 @@ const App = () => {
           )}
 
           {!results && loading && (
-            <ProgressView jobStage={jobStage} jobStatus={jobStatus} jobProgress={jobProgress} jobId={jobId} onCancel={cancelJob} />
+            partial.scores ? (
+              // Show results as they arrive instead of waiting for the whole pipeline.
+              <div className="space-y-8">
+                <div className="grid grid-cols-1 2xl:grid-cols-[420px_1fr] gap-8 items-start">
+                  <ScoreCard scores={partial.scores} />
+                  <div className="space-y-8">
+                    <ProgressView compact theme={theme} jobStage={jobStage} jobStatus={jobStatus} jobProgress={jobProgress} jobId={jobId} onCancel={cancelJob} />
+                    {partial.audit && (
+                      <section className="card p-7">
+                        <div className="flex items-center gap-2 font-bold mb-3"><ClipboardList size={17} className="accent" /> Audit</div>
+                        <div className="prose-doc max-h-[520px] overflow-y-auto pr-2">{partial.audit}</div>
+                      </section>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <ProgressView theme={theme} jobStage={jobStage} jobStatus={jobStatus} jobProgress={jobProgress} jobId={jobId} onCancel={cancelJob} />
+            )
           )}
 
-          {!results && !loading && !coverLetter && !coverLoading && <EmptyState />}
+          {!results && !loading && !coverLetter && !coverLoading && <EmptyState theme={theme} />}
 
           {results && (
             <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="space-y-8">
+              <GroundingNotice report={results.grounding} />
               <div className="grid grid-cols-1 2xl:grid-cols-[420px_1fr] gap-8 items-start">
                 {results.scores && <ScoreCard scores={results.scores} />}
 
@@ -600,7 +704,7 @@ const App = () => {
               <section className="card p-7">
                 <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
                   <div>
-                    <h2 className="text-xl font-extrabold tracking-tight">Choose a template</h2>
+                    <h2 className="text-xl font-bold tracking-tight">Choose a template</h2>
                     <p className="text-sm muted">Your optimized CV, ready to send.</p>
                   </div>
                   <button onClick={downloadPDF} disabled={exporting} className="btn btn-primary btn-lg">

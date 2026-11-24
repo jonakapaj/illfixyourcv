@@ -1,17 +1,18 @@
 # AI Career Sentinel / CV Optimizer
 
-Local-first CV optimization and cover letter generation using local LLMs (defaults to Ollama `llama3`). Contains a Streamlit dashboard, a FastAPI backend with background job queue, and a React (Vite) frontend.
+Local-first CV optimization and cover letter generation using local LLMs (defaults to Ollama `llama3.2:3b`; set `OLLAMA_MODEL=llama3` for the larger model). Contains a Streamlit dashboard, a FastAPI backend with background job queue, and a React (Vite) frontend.
 
 ---
 
 ## 🚀 Key Features
 
 - **Multi-Agent CV Audit & Rewrite**: Evaluates skill alignment, identifies gaps, provides roadmaps, and rewrites CVs using the STAR method.
+- **Grounded Output**: The rewrite and cover letter are told which job requirements the CV lacks, then fact-checked (`grounding.py`); invented skills or numbers trigger one repair pass, and anything left is shown to the user. Skill scores are capped when the model can't quote evidence from the CV.
 - **Asynchronous Task Queue**: Background worker for long-running LLM tasks with status polling and cancellation.
 - **Cover Letter Generator**: Builds customized cover letters (text or PDF) matching CV and job details.
 - **PDF Generation**: Exports print-ready CVs using `corporate`, `tech`, or `minimal` templates.
 - **OCR Fallback**: Automated text extraction fallback for scanned PDFs via Tesseract OCR + Pillow.
-- **Response Caching**: Local file-based caching for identical CV and job description runs.
+- **Response Caching**: Local file-based caching for identical CV, job description and instructions.
 
 ---
 
@@ -23,7 +24,10 @@ Local-first CV optimization and cover letter generation using local LLMs (defaul
   - `main.py`: FastAPI server routes and background task worker.
   - `ai_agents.py`: LLM agent logic (scoring, auditing, rewriting).
   - `pdf_templates.py`: PDF rendering code for CV templates and cover letters.
+  - `grounding.py`: Deterministic checks that generated text only uses facts from the CV.
+  - `cv_parser.py`: Parses the rewrite into PDF-ready `cv_data` without an LLM call (LLM structurer is only a fallback).
   - `utils.py`: Text extraction, OCR, and hashing cache helpers.
+  - `tests/`: Unit tests (`venv/bin/python -m unittest discover backend/tests`).
 - `frontend/`: React + Vite SPA.
 
 ---
@@ -33,7 +37,7 @@ Local-first CV optimization and cover letter generation using local LLMs (defaul
 ### 1. Prerequisites
 - Python 3.10+
 - Node.js & npm
-- Ollama service running with `llama3` pulled (`ollama pull llama3`)
+- Ollama service running with `llama3.2:3b` pulled (`ollama pull llama3.2:3b`)
 - *Optional*: System-level Tesseract (`brew install tesseract`) for scanned PDF support
 
 ### 2. Installation
@@ -63,8 +67,8 @@ The standalone binary will be created at `backend/dist/CV_Optimizer`. Run it dir
 
 ### CV Analysis & Jobs
 * **`POST /analyze`** (Multipart): Submit `file` (PDF), `job_description`, and optional `user_instructions`. Returns `job_id`.
-* **`GET /status/{job_id}`**: Poll progress status (`queued`, `running`, `completed`, `failed`, `canceled`) and stage info.
-* **`GET /result/{job_id}`**: Retrieve final `scores`, `audit`, `rewrite`, and `cv_data` structure.
+* **`GET /status/{job_id}`**: Poll progress status (`queued`, `running`, `completed`, `failed`, `canceled`), stage info, and `partial` results (`scores`, then `audit`) as soon as each step finishes.
+* **`GET /result/{job_id}`**: Retrieve final `scores`, `audit`, `rewrite`, `cv_data`, and `grounding` (`{numbers, terms}` the rewrite uses that the CV doesn't contain).
 * **`POST /cancel/{job_id}`**: Cancel a running analysis.
 * **`POST /structure`** (Form): Re-parse CV JSON structure from manual rewrite text.
 
@@ -77,7 +81,9 @@ The standalone binary will be created at `backend/dist/CV_Optimizer`. Run it dir
 
 ## 🔧 Environment Variables
 
-- `OLLAMA_MODEL`: Target Ollama model name (default: `llama3`).
+- `OLLAMA_MODEL`: Target Ollama model name (default: `llama3.2:3b`; `llama3` is slower but writes slightly better).
+- `OLLAMA_KEEP_ALIVE`: How long the model stays loaded between calls (default: `30m`).
+- `OLLAMA_NUM_CTX`: Context window per request (default: `4096`; Ollama's own default of 2048 truncates long CVs).
 - `SERVE_FRONTEND`: Set to `1`, `true`, or `yes` to serve the static frontend via FastAPI.
 
 ---

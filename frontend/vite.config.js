@@ -14,6 +14,7 @@ export default defineConfig({
       '/cover-letter': 'http://localhost:8000',
       '/cover-letter-pdf': 'http://localhost:8000',
       '/structure': 'http://localhost:8000',
+      '/health': 'http://localhost:8000',
     },
   },
 })

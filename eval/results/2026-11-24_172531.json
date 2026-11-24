@@ -1,0 +1,649 @@
+{
+  "timestamp": "2026-11-24_172531",
+  "model": "llama3.2:3b",
+  "passed": 64,
+  "total": 65,
+  "grounding_passed": 24,
+  "grounding_total": 24,
+  "cross_case": [
+    {
+      "check": "ranking: strong-fit CVs score above weak-fit CVs",
+      "pass": true,
+      "detail": {
+        "strong": [
+          60.0
+        ],
+        "weak": [
+          3.3
+        ]
+      }
+    }
+  ],
+  "cases": [
+    {
+      "id": "backend_strong_match",
+      "expected_fit": "strong",
+      "avg_score": 60.0,
+      "latency_s": {
+        "score_skills": 10.7,
+        "audit_cv": 16.4,
+        "rewrite_cv": 28.6,
+        "structure_cv": 0.0,
+        "cover_letter": 12.0
+      },
+      "checks": [
+        {
+          "check": "scores: 6 skills",
+          "pass": true,
+          "detail": 6
+        },
+        {
+          "check": "scores: ints in 0-100",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "check": "scores: not fallback defaults",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "check": "audit: all sections present",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "check": "rewrite: all sections present",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "check": "rewrite: no invented numbers",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "check": "rewrite: no invented skills",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "check": "structure: schema keys present",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "check": "structure: name & email from CV",
+          "pass": true,
+          "detail": {
+            "name": "Arben Hoxha",
+            "email": "arben.hoxha@example.com"
+          }
+        },
+        {
+          "check": "structure: no invented employers",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "check": "structure: no invented institutions",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "check": "structure: all employers kept",
+          "pass": true,
+          "detail": "2/2"
+        },
+        {
+          "check": "cover letter: 230-370 words",
+          "pass": true,
+          "detail": 235
+        },
+        {
+          "check": "cover letter: signed with name",
+          "pass": true,
+          "detail": "Arben Hoxha"
+        },
+        {
+          "check": "cover letter: no invented numbers",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "check": "cover letter: no invented skills",
+          "pass": true,
+          "detail": null
+        }
+      ],
+      "passed": 16,
+      "total": 16,
+      "outputs": {
+        "scores": {
+          "3+ years building production APIs in Python": 85,
+          "Strong SQL": 90,
+          "Caching and performance work": 95,
+          "Automated testing and CI/CD": 90,
+          "Experience with Kubernetes": 0,
+          "Experience with Terraform": 0
+        },
+        "audit": "EXECUTIVE SUMMARY\nThe candidate, Arben Hoxha, appears to be a strong fit for the Backend Engineer role at Fintrail, with relevant experience in building production APIs in Python and experience with PostgreSQL. However, there is a need to address the gap in Kubernetes and Terraform experience.\n\n3 CRITICAL GAPS\nGap: Kubernetes\nEvidence: No mention of Kubernetes experience.\nFix: Provide concrete examples of Kubernetes deployment experience in the work experience section.\n\nGap: Terraform\nEvidence: No mention of Terraform experience.\nFix: Include Terraform experience in the work experience section.\n\nGap: gRPC\nEvidence: No mention of gRPC experience.\nFix: Mention gRPC experience in the skills section or work experience section.\n\nALIGNMENT MATRIX\n| Requirement | CV Evidence | Gap Level |\n| --- | --- | --- |\n| Building production APIs in Python | Built and maintain REST APIs in Python (FastAPI) | Low |\n| Strong SQL | Wrote PostgreSQL migrations and query optimisations | Low |\n| Caching and performance work | Added Redis caching | Low |\n| Automated testing and CI/CD | Set up GitHub Actions CI with pytest | Low |\n| Experience with Kubernetes and Terraform | No mention | Medium |\n| Experience with gRPC | No mention | High |\n| Nice to have: Experience with Kubernetes and Terraform | No mention | Medium |\n| Nice to have: Experience with gRPC | No mention | High |\n\nJOB DESCRIPTION\nFintrail — Backend Engineer (Python) We are a payments startup looking for a backend engineer. Requirements: - 3+ years building production APIs in Python (FastAPI or Django) - Strong SQL, ideally PostgreSQL - Caching and performance work (Redis or similar) - Automated testing and CI/CD - Experience with Kubernetes and Terraform for deployments - Nice to have: gRPC",
+        "rewrite": "PROFESSIONAL SUMMARY\nHighly skilled backend developer with expertise in Python, PostgreSQL, and Redis, delivering high-performance APIs and optimized database solutions. Proven track record of reducing latency and improving test coverage through effective caching and testing strategies. Proficient in Django, with experience in automated testing.\n\nCORE SKILLS\n1. Python\n2. PostgreSQL\n3. Redis\n4. Django\n5. REST APIs\n6. Git\n7. Linux\n\nPROFESSIONAL EXPERIENCE\nBackend Developer — Nordlicht Software, Tirana (2021 – present)\n- Built and maintained REST APIs in Python used by 12 internal services.\n- Optimized API performance by adding caching, reducing latency from 800 ms to 240 ms.\n- Improved database query performance by writing PostgreSQL migrations and query optimizations, reducing a nightly report job from 45 to 9 minutes.\n- Set up automated testing, increasing test coverage from 30% to 78%.\n\nJunior Developer — Kaya Logistics, Durrës (2019 – 2021)\n- Developed Django admin tools for warehouse staff.\n- Integrated a third-party shipping API and handled webhook retries.\n- Containerised two services with Docker.\n\nEDUCATION\nBSc Computer Science — University of Tirana, 2019\nRelevant coursework: Computer Systems, Database Systems, Web Development.",
+        "cv_data": {
+          "summary": "Highly skilled backend developer with expertise in Python, PostgreSQL, and Redis, delivering high-performance APIs and optimized database solutions. Proven track record of reducing latency and improving test coverage through effective caching and testing strategies. Proficient in Django, with experience in automated testing.",
+          "skills": [
+            "Python",
+            "PostgreSQL",
+            "Redis",
+            "Django",
+            "REST APIs",
+            "Git",
+            "Linux"
+          ],
+          "experience": [
+            {
+              "title": "Backend Developer",
+              "company": "Nordlicht Software, Tirana",
+              "period": "2021 – present",
+              "bullets": [
+                "Built and maintained REST APIs in Python used by 12 internal services.",
+                "Optimized API performance by adding caching, reducing latency from 800 ms to 240 ms.",
+                "Improved database query performance by writing PostgreSQL migrations and query optimizations, reducing a nightly report job from 45 to 9 minutes.",
+                "Set up automated testing, increasing test coverage from 30% to 78%."
+              ]
+            },
+            {
+              "title": "Junior Developer",
+              "company": "Kaya Logistics, Durrës",
+              "period": "2019 – 2021",
+              "bullets": [
+                "Developed Django admin tools for warehouse staff.",
+                "Integrated a third-party shipping API and handled webhook retries.",
+                "Containerised two services with Docker."
+              ]
+            }
+          ],
+          "education": [
+            {
+              "degree": "BSc Computer Science",
+              "institution": "University of Tirana",
+              "year": "2019"
+            }
+          ],
+          "email": "arben.hoxha@example.com",
+          "phone": "+355 69 123 4567",
+          "linkedin": "linkedin.com/in/arbenhoxha",
+          "name": "Arben Hoxha",
+          "location": "",
+          "current_title": "Backend Developer"
+        },
+        "cover_letter": "As a seasoned Backend Developer with a passion for delivering high-performance APIs, I am drawn to Fintrail's innovative approach to payments and the opportunity to contribute my expertise to the team. The requirement for strong SQL skills, particularly with PostgreSQL, resonates with my experience in optimizing database queries and migrations, which I believe would be a valuable asset to the company.\n\nThroughout my career, I have consistently demonstrated my ability to improve API performance and reliability. For instance, my experience with Redis caching allowed me to significantly reduce the p95 latency of an API, from 800 ms to 240 ms, resulting in a substantial improvement in user experience. Additionally, my work on PostgreSQL migrations and query optimizations has enabled me to reduce the time taken for a nightly report job from 45 minutes to just 9 minutes. These achievements not only showcase my technical skills but also highlight my ability to analyze complex problems and implement effective solutions.\n\nI am excited about the prospect of joining Fintrail and contributing my skills and experience to the team. With my strong background in Python, FastAPI, and PostgreSQL, I am confident that I can make a meaningful impact. I am eager to discuss how my expertise can support the company's goals and am available to start immediately. I look forward to the opportunity to meet and explore how I can contribute to Fintrail's success.\n\nKind regards,\nArben Hoxha"
+      }
+    },
+    {
+      "id": "marketing_to_data_eng_weak_match",
+      "expected_fit": "weak",
+      "avg_score": 3.3,
+      "latency_s": {
+        "score_skills": 6.5,
+        "audit_cv": 10.0,
+        "rewrite_cv": 18.5,
+        "structure_cv": 0.0,
+        "cover_letter": 24.9
+      },
+      "checks": [
+        {
+          "check": "scores: 6 skills",
+          "pass": true,
+          "detail": 6
+        },
+        {
+          "check": "scores: ints in 0-100",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "check": "scores: not fallback defaults",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "check": "audit: all sections present",
+          "pass": false,
+          "detail": [
+            "ALIGNMENT MATRIX"
+          ]
+        },
+        {
+          "check": "rewrite: all sections present",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "check": "rewrite: no invented numbers",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "check": "rewrite: no invented skills",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "check": "structure: schema keys present",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "check": "structure: name & email from CV",
+          "pass": true,
+          "detail": {
+            "name": "Lena Gruber",
+            "email": "lena.gruber@example.com"
+          }
+        },
+        {
+          "check": "structure: no invented employers",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "check": "structure: no invented institutions",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "check": "structure: all employers kept",
+          "pass": true,
+          "detail": "2/2"
+        },
+        {
+          "check": "cover letter: 230-370 words",
+          "pass": true,
+          "detail": 233
+        },
+        {
+          "check": "cover letter: signed with name",
+          "pass": true,
+          "detail": "Lena Gruber"
+        },
+        {
+          "check": "cover letter: no invented numbers",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "check": "cover letter: no invented skills",
+          "pass": true,
+          "detail": null
+        }
+      ],
+      "passed": 15,
+      "total": 16,
+      "outputs": {
+        "scores": {
+          "Batch data pipeline": 0,
+          "Apache Spark": 0,
+          "Orchestration": 0,
+          "Data modelling": 0,
+          "Python and SQL": 20,
+          "Cloud warehouse": 0
+        },
+        "audit": "EXECUTIVE SUMMARY\nLena Gruber's CV demonstrates a strong marketing background, but lacks direct experience in data engineering, which is a critical requirement for the DataForge role. The CV highlights her skills in email marketing and social media, but these are not directly relevant to the job.\n\n3 CRITICAL GAPS\nGap: Lack of batch and streaming data pipeline experience\nEvidence: No mention of data engineering experience in the CV.\nFix: Consider adding a project or internship that involved building data pipelines in the CV.\n\nGap: Inadequate technical skills in data engineering\nEvidence: No mention of Apache Spark, Scala, PySpark, or cloud warehouse experience.\nFix: Take an online course or attend a workshop to gain experience with these tools and update the CV accordingly.\n\nGap: Insufficient data modelling experience\nEvidence: No mention of dbt or cloud warehouse experience.\nFix: Participate in a data modelling project or take an online course to learn about dbt and cloud warehouses, and update the CV to reflect this.",
+        "rewrite": "PROFESSIONAL SUMMARY\nResults-driven marketing professional with experience in email marketing, campaign analysis, and data visualization, seeking to leverage data engineering skills to drive business growth.\n\nCORE SKILLS\n- Data pipeline development\n- Data modeling\n- Cloud warehouse management\n- Event streaming\n- Orchestration\n- SQL\n\nPROFESSIONAL EXPERIENCE\nMarketing Coordinator — Bloom Cosmetics, Vienna (2022 – present)\n- Planned and executed monthly email campaigns, resulting in an increase in newsletter subscribers.\n- Built and maintained weekly campaign reports using Google Sheets and Looker Studio.\n- Analyzed campaign performance and provided insights to inform future marketing strategies.\n\nSocial Media Assistant — Agency Twelve, Vienna (2020 – 2022)\n- Scheduled and published content for 6 client social media accounts.\n- Created engaging short-form content for Instagram and LinkedIn.\n\nEDUCATION\nBA Communication Studies — University of Vienna, 2020",
+        "cv_data": {
+          "summary": "Results-driven marketing professional with experience in email marketing, campaign analysis, and data visualization, seeking to leverage data engineering skills to drive business growth.",
+          "skills": [
+            "Data pipeline development",
+            "Data modeling",
+            "Cloud warehouse management",
+            "Event streaming",
+            "Orchestration",
+            "SQL"
+          ],
+          "experience": [
+            {
+              "title": "Marketing Coordinator",
+              "company": "Bloom Cosmetics, Vienna",
+              "period": "2022 – present",
+              "bullets": [
+                "Planned and executed monthly email campaigns, resulting in an increase in newsletter subscribers.",
+                "Built and maintained weekly campaign reports using Google Sheets and Looker Studio.",
+                "Analyzed campaign performance and provided insights to inform future marketing strategies."
+              ]
+            },
+            {
+              "title": "Social Media Assistant",
+              "company": "Agency Twelve, Vienna",
+              "period": "2020 – 2022",
+              "bullets": [
+                "Scheduled and published content for 6 client social media accounts.",
+                "Created engaging short-form content for Instagram and LinkedIn."
+              ]
+            }
+          ],
+          "education": [
+            {
+              "degree": "BA Communication Studies",
+              "institution": "University of Vienna",
+              "year": "2020"
+            }
+          ],
+          "email": "lena.gruber@example.com",
+          "phone": "+43 660 555 0101",
+          "name": "Lena Gruber",
+          "location": "",
+          "linkedin": "",
+          "current_title": "Marketing Coordinator"
+        },
+        "cover_letter": "As I read through the Data Engineer role at DataForge, I am drawn to the opportunity to leverage my experience in building and managing data pipelines to drive business growth. The requirement to orchestrate data processing resonates with my ability to plan and execute complex marketing campaigns, where timely and accurate reporting was crucial.\n\nIn my current role as Marketing Coordinator at Bloom Cosmetics, I have successfully applied my skills to grow the newsletter list from 4,000 to 11,500 subscribers in one year. This achievement demonstrates my ability to scale and adapt to changing data needs, a skill that I believe will serve me well in this role. Additionally, my experience with Google Sheets and Looker Studio has given me a solid foundation in data analysis and visualization, which I am eager to apply to more complex data sets. Furthermore, my experience with Mailchimp has taught me the importance of data modeling and storage, skills that I believe will be valuable in this role.\n\nI am excited about the opportunity to bring my skills and experience to DataForge and contribute to the success of the company. I am confident that my strong work ethic, attention to detail, and ability to learn quickly will make me a valuable asset to the team. I am available to discuss this opportunity further and look forward to the chance to meet with you.\n\nKind regards,\nLena Gruber"
+      }
+    },
+    {
+      "id": "student_to_frontend_partial",
+      "expected_fit": "partial",
+      "avg_score": 17.5,
+      "latency_s": {
+        "score_skills": 7.8,
+        "audit_cv": 12.6,
+        "rewrite_cv": 10.5,
+        "structure_cv": 0.0,
+        "cover_letter": 12.5
+      },
+      "checks": [
+        {
+          "check": "scores: 6 skills",
+          "pass": true,
+          "detail": 6
+        },
+        {
+          "check": "scores: ints in 0-100",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "check": "scores: not fallback defaults",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "check": "audit: all sections present",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "check": "rewrite: all sections present",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "check": "rewrite: no invented numbers",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "check": "rewrite: no invented skills",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "check": "structure: schema keys present",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "check": "structure: name & email from CV",
+          "pass": true,
+          "detail": {
+            "name": "Mira Weber",
+            "email": "mira.weber@example.com"
+          }
+        },
+        {
+          "check": "structure: no invented employers",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "check": "structure: no invented institutions",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "check": "structure: all employers kept",
+          "pass": true,
+          "detail": "1/1"
+        },
+        {
+          "check": "cover letter: 230-370 words",
+          "pass": true,
+          "detail": 252
+        },
+        {
+          "check": "cover letter: signed with name",
+          "pass": true,
+          "detail": "Mira Weber"
+        },
+        {
+          "check": "cover letter: no invented numbers",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "check": "cover letter: no invented skills",
+          "pass": true,
+          "detail": null
+        }
+      ],
+      "passed": 16,
+      "total": 16,
+      "outputs": {
+        "scores": {
+          "Solid JavaScript and React": 85,
+          "TypeScript in production code": 0,
+          "Next.js and server-side rendering": 0,
+          "Consuming GraphQL APIs": 0,
+          "Component documentation with Storybook": 0,
+          "Eye for design, comfortable with Figma": 20
+        },
+        "audit": "EXECUTIVE SUMMARY\nThe candidate, Mira Weber, demonstrates a good fit for the Junior Frontend Developer role, with relevant experience in React and CSS. However, her CV lacks concrete examples of production-ready TypeScript and server-side rendering experience.\n\n3 CRITICAL GAPS\nGap: Production-ready TypeScript\nEvidence: No specific projects or achievements mentioned.\nFix: Include a project or achievement that showcases the use of TypeScript in production code.\n\nGap: Server-side rendering with Next.js\nEvidence: No specific projects or achievements mentioned.\nFix: Add a project or achievement that demonstrates experience with server-side rendering using Next.js.\n\nGap: Consuming GraphQL APIs\nEvidence: No specific projects or achievements mentioned.\nFix: Include a project or achievement that showcases experience with consuming GraphQL APIs.\n\nALIGNMENT MATRIX\n| Requirement | CV Evidence | Gap Level |\n| --- | --- | --- |\n| Solid JavaScript and React | Relevant experience in React | Low |\n| TypeScript in production code | No specific projects or achievements mentioned | High |\n| Next.js and server-side rendering | No specific projects or achievements mentioned | High |\n| Consuming GraphQL APIs | No specific projects or achievements mentioned | High |\n| Component documentation with Storybook | No specific projects or achievements mentioned | High |\n| Eye for design, comfortable with Figma | Relevant experience with Figma | Low |\n\nJOB DESCRIPTION",
+        "rewrite": "PROFESSIONAL SUMMARY\nHighly motivated and detail-oriented frontend developer with a strong foundation in JavaScript and React, seeking a challenging role in a dynamic team. Proven ability to deliver high-quality UI components and collaborate with designers to bring designs to life. Proficient in CSS and HTML, with experience in building responsive layouts. \n\nCORE SKILLS\n- JavaScript\n- React\n- HTML\n- CSS\n- Tailwind CSS\n- Git\n- Figma\n\nPROFESSIONAL EXPERIENCE\nWorking Student, Web Development — Pixelhaus, Munich (2023 – present)\n- Fixed CSS layout bugs and built small UI components in React, resulting in improved user experience.\n- Added form validation to the customer sign-up page, enhancing user data security.\n- Collaborated with the development team to implement new features, resulting in increased efficiency.\n\nPROJECTS\nThesis project: built a React dashboard used by 3 research groups to browse sensor data.\nPersonal site built with HTML, CSS and JavaScript.\n\nEDUCATION\nBSc Informatics — TU Munich, expected 2025",
+        "cv_data": {
+          "summary": "Highly motivated and detail-oriented frontend developer with a strong foundation in JavaScript and React, seeking a challenging role in a dynamic team. Proven ability to deliver high-quality UI components and collaborate with designers to bring designs to life. Proficient in CSS and HTML, with experience in building responsive layouts.",
+          "skills": [
+            "JavaScript",
+            "React",
+            "HTML",
+            "CSS",
+            "Tailwind CSS",
+            "Git",
+            "Figma"
+          ],
+          "experience": [
+            {
+              "title": "Working Student",
+              "company": "Web Development, Pixelhaus, Munich",
+              "period": "2023 – present",
+              "bullets": [
+                "Fixed CSS layout bugs and built small UI components in React, resulting in improved user experience.",
+                "Added form validation to the customer sign-up page, enhancing user data security.",
+                "Collaborated with the development team to implement new features, resulting in increased efficiency."
+              ]
+            }
+          ],
+          "education": [
+            {
+              "degree": "BSc Informatics",
+              "institution": "TU Munich",
+              "year": "expected 2025"
+            }
+          ],
+          "email": "mira.weber@example.com",
+          "name": "Mira Weber",
+          "phone": "",
+          "location": "",
+          "linkedin": "",
+          "current_title": "Working Student"
+        },
+        "cover_letter": "I am excited to apply for the Junior Frontend Developer role at Studio Kern, where I can leverage my passion for building user-friendly interfaces and my experience in React to contribute to the team's success. With a strong foundation in JavaScript and React, I am confident that I can deliver high-quality frontend solutions that meet the company's standards.\n\nThroughout my experience as a working student at Pixelhaus, I have developed a solid understanding of React and its capabilities. I successfully fixed CSS layout bugs and built small UI components, demonstrating my ability to identify and resolve issues. Additionally, I added form validation to the customer sign-up page, showcasing my attention to detail and commitment to delivering functional and user-friendly interfaces. My thesis project, which built a React dashboard used by 3 research groups, further solidified my skills in designing and developing complex user interfaces. This project not only honed my technical skills but also taught me the importance of collaboration and communication in a team environment.\n\nI am particularly drawn to Studio Kern's emphasis on design and user experience. As someone who is comfortable with Figma and has a keen eye for design, I believe that I would be a great fit for this role. I am excited about the opportunity to work with a talented team and contribute to the development of innovative frontend solutions. I am available to start immediately and am eager to discuss my application and how I can contribute to Studio Kern's success.\n\nKind regards,\nMira Weber"
+      }
+    },
+    {
+      "id": "pm_no_metrics",
+      "expected_fit": "partial",
+      "avg_score": 45.8,
+      "latency_s": {
+        "score_skills": 8.3,
+        "audit_cv": 13.4,
+        "rewrite_cv": 11.2,
+        "structure_cv": 0.0,
+        "cover_letter": 12.6
+      },
+      "checks": [
+        {
+          "check": "scores: 6 skills",
+          "pass": true,
+          "detail": 6
+        },
+        {
+          "check": "scores: ints in 0-100",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "check": "scores: not fallback defaults",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "check": "audit: all sections present",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "check": "rewrite: all sections present",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "check": "rewrite: no invented numbers",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "check": "rewrite: no invented skills",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "check": "structure: schema keys present",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "check": "structure: name & email from CV",
+          "pass": true,
+          "detail": {
+            "name": "Dritan Leka",
+            "email": "dritan.leka@example.com"
+          }
+        },
+        {
+          "check": "structure: no invented employers",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "check": "structure: no invented institutions",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "check": "structure: all employers kept",
+          "pass": true,
+          "detail": "2/2"
+        },
+        {
+          "check": "cover letter: 230-370 words",
+          "pass": true,
+          "detail": 240
+        },
+        {
+          "check": "cover letter: signed with name",
+          "pass": true,
+          "detail": "Dritan Leka"
+        },
+        {
+          "check": "cover letter: no invented numbers",
+          "pass": true,
+          "detail": null
+        },
+        {
+          "check": "cover letter: no invented skills",
+          "pass": true,
+          "detail": null
+        }
+      ],
+      "passed": 16,
+      "total": 16,
+      "outputs": {
+        "scores": {
+          "Experience managing projects": 85,
+          "Agile delivery": 0,
+          "Strong stakeholder communication": 85,
+          "Budget tracking": 85,
+          "Daily use of Jira": 0,
+          "PMP certification": 20
+        },
+        "audit": "EXECUTIVE SUMMARY\nThe candidate, Dritan Leka, appears to have some relevant experience in project coordination and stakeholder communication, but lacks direct experience in managing projects end-to-end and Agile delivery. The candidate's CV highlights skills that align with the job requirements, but there are significant gaps in their experience and certifications.\n\n3 CRITICAL GAPS\nGap: Experience managing projects end-to-end\nEvidence: Lack of specific project management experience.\nFix: Take a course in project management to gain hands-on experience.\n\nGap: Agile delivery and Scrum Master certification\nEvidence: No Scrum Master certification mentioned.\nFix: Obtain a Scrum Master certification to demonstrate expertise.\n\nGap: PMP certification\nEvidence: No PMP certification mentioned.\nFix: Pursue a PMP certification to demonstrate advanced project management skills.\n\nALIGNMENT MATRIX\n| Requirement | CV Evidence | Gap Level |\n| --- | --- | --- |\n| Experience managing projects end-to-end | Lack of specific project management experience | High |\n| Agile delivery | No Agile experience | High |\n| Scrum Master certification | No Scrum Master certification | High |\n| PMP certification | No PMP certification | High |\n| Daily use of Jira and Confluence | No mention of Jira or Confluence experience | Medium |\n| Strong stakeholder communication | Relevant experience in stakeholder communication | Low |\n| Budget tracking | Relevant experience in budget tracking | Low |",
+        "rewrite": "PROFESSIONAL SUMMARY\nResults-driven project coordinator with experience in managing residential construction projects, coordinating subcontractors, and maintaining project schedules and budgets. Proven track record of effective stakeholder communication and organizational skills. Skilled in MS Project, Excel, and tendering processes.\n\nCORE SKILLS\n- Scheduling\n- Budgeting\n- Stakeholder communication\n- MS Project\n- Excel\n- Tendering\n\nPROFESSIONAL EXPERIENCE\nProject Coordinator — Adriatic Build, Shkodër (2020 – present)\n- Coordinated subcontractors on residential construction projects, ensuring timely completion and quality delivery.\n- Maintained accurate project schedules and budgets, reporting to the site director on a regular basis.\n- Organized weekly progress meetings with clients to ensure stakeholder satisfaction and project updates.\n\nAdministrative Officer — City of Shkodër (2017 – 2020)\n- Coordinated the renovation of the municipal library from planning to handover, ensuring a smooth transition for stakeholders.\n- Prepared tender documents and tracked supplier contracts to ensure compliance with regulations.\n\nEDUCATION\nBSc Civil Engineering — University of Shkodër, 2017",
+        "cv_data": {
+          "summary": "Results-driven project coordinator with experience in managing residential construction projects, coordinating subcontractors, and maintaining project schedules and budgets. Proven track record of effective stakeholder communication and organizational skills. Skilled in MS Project, Excel, and tendering processes.",
+          "skills": [
+            "Scheduling",
+            "Budgeting",
+            "Stakeholder communication",
+            "MS Project",
+            "Excel",
+            "Tendering"
+          ],
+          "experience": [
+            {
+              "title": "Project Coordinator",
+              "company": "Adriatic Build, Shkodër",
+              "period": "2020 – present",
+              "bullets": [
+                "Coordinated subcontractors on residential construction projects, ensuring timely completion and quality delivery.",
+                "Maintained accurate project schedules and budgets, reporting to the site director on a regular basis.",
+                "Organized weekly progress meetings with clients to ensure stakeholder satisfaction and project updates."
+              ]
+            },
+            {
+              "title": "Administrative Officer",
+              "company": "City of Shkodër",
+              "period": "2017 – 2020",
+              "bullets": [
+                "Coordinated the renovation of the municipal library from planning to handover, ensuring a smooth transition for stakeholders.",
+                "Prepared tender documents and tracked supplier contracts to ensure compliance with regulations."
+              ]
+            }
+          ],
+          "education": [
+            {
+              "degree": "BSc Civil Engineering",
+              "institution": "University of Shkodër",
+              "year": "2017"
+            }
+          ],
+          "email": "dritan.leka@example.com",
+          "name": "Dritan Leka",
+          "phone": "",
+          "location": "",
+          "linkedin": "",
+          "current_title": "Project Coordinator"
+        },
+        "cover_letter": "As a seasoned project coordinator with experience in managing projects from planning to handover, I am excited to apply for the Project Manager role at Helix Digital, where I can leverage my skills to deliver end-to-end projects. With a strong background in stakeholder communication and budget tracking, I am confident that I can make a valuable contribution to your team.\n\nThroughout my career, I have demonstrated my ability to effectively coordinate subcontractors, manage project schedules and budgets, and maintain strong stakeholder relationships. For instance, in my role as Project Coordinator at Adriatic Build, I successfully coordinated weekly progress meetings with clients, ensuring that all parties were informed and aligned with project progress. Additionally, I have experience in preparing tender documents and tracking supplier contracts, which has allowed me to build strong relationships with suppliers and negotiate favorable terms. My experience in coordinating the renovation of the municipal library from planning to handover showcases my ability to manage complex projects from start to finish.\n\nI am eager to bring my skills and experience to a new challenge and am excited about the opportunity to work with the Helix Digital team. I am confident that my strong stakeholder communication skills, combined with my ability to manage budgets and schedules, make me an ideal candidate for this role. I am available to discuss my application and look forward to the opportunity to contribute to the success of Helix Digital.\n\nKind regards,\nDritan Leka"
+      }
+    }
+  ]
+}
